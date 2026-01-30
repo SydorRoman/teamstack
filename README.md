@@ -1,4 +1,4 @@
-# StellarTech - Admin Panel
+# Admin Panel
 
 A full-stack web application for managing employee absences, built with React, Node.js, TypeScript, Prisma, and PostgreSQL.
 
