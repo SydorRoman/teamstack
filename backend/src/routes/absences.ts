@@ -9,7 +9,7 @@ import { LocalStorageService } from '../services/storage/localStorageService.js'
 
 const router = express.Router();
 const prisma = new PrismaClient();
-const prismaAny = prisma as typeof prisma & { settings: any; absence: any; absenceFile: any };
+const prismaAny = prisma as typeof prisma & { settings: any };
 
 const upload = multer({ storage: multer.memoryStorage() });
 const storageService = new LocalStorageService(path.resolve(process.cwd(), 'uploads', 'sick-leave'));
@@ -78,7 +78,6 @@ async function getSettingsWithDefaults() {
       vacationFutureAccrueDays: 1.5,
       sickLeaveWithoutCertificateLimit: 5,
       sickLeaveWithCertificateLimit: 5,
-      vacationCarryoverLimit: 0,
     },
   });
 }
@@ -263,17 +262,18 @@ router.post('/', authenticateToken, handleUploadIfMultipart, async (req: AuthReq
 
       // Check 10 working days notice requirement
       // Only enforce for future dates; backdated vacations are allowed
-      if (absenceStart >= today) {
-        // Calculate 10 working days from today
-        const requiredDate = addWorkingDays(today, 10);
+      // TODO: Uncomment this when we have a way to allow backdated vacation
+      // if (absenceStart >= today) {
+      //   // Calculate 10 working days from today
+      //   const requiredDate = addWorkingDays(today, 10);
         
-        if (absenceStart < requiredDate) {
-          const workingDaysUntilStart = countWorkingDays(today, absenceStart);
-          return res.status(400).json({
-            error: `Vacation request must be created at least 10 working days before the start date. You have ${workingDaysUntilStart} working days until ${absenceStart.toLocaleDateString()}`,
-          });
-        }
-      }
+      //   if (absenceStart < requiredDate) {
+      //     const workingDaysUntilStart = countWorkingDays(today, absenceStart);
+      //     return res.status(400).json({
+      //       error: `Vacation request must be created at least 10 working days before the start date. You have ${workingDaysUntilStart} working days until ${absenceStart.toLocaleDateString()}`,
+      //     });
+      //   }
+      // }
     }
 
     if (data.type === 'sick_leave') {
@@ -288,7 +288,7 @@ router.post('/', authenticateToken, handleUploadIfMultipart, async (req: AuthReq
         });
       }
 
-      const adjacentAbsences = await prismaAny.absence.findMany({
+      const adjacentAbsences = await prisma.absence.findMany({
         where: {
           userId: userId!,
           type: 'sick_leave',
@@ -320,9 +320,7 @@ router.post('/', authenticateToken, handleUploadIfMultipart, async (req: AuthReq
       });
 
       const hasAdjacent = adjacentAbsences.length > 0;
-      const adjacentHasCertificate = adjacentAbsences.some(
-        (absence: { files: unknown[] }) => absence.files.length > 0
-      );
+      const adjacentHasCertificate = adjacentAbsences.some((absence) => absence.files.length > 0);
 
       if (isSingleDay && hasAdjacent && !hasNewFiles && !adjacentHasCertificate) {
         return res.status(400).json({
@@ -331,7 +329,7 @@ router.post('/', authenticateToken, handleUploadIfMultipart, async (req: AuthReq
       }
 
       const { yearStart, yearEnd } = getYearBounds(absenceStart);
-      const unconfirmedCount = await prismaAny.absence.count({
+      const unconfirmedCount = await prisma.absence.count({
         where: {
           userId: userId!,
           type: 'sick_leave',
@@ -362,7 +360,7 @@ router.post('/', authenticateToken, handleUploadIfMultipart, async (req: AuthReq
       for (const year of yearsToCheck) {
         const rangeStart = new Date(year, 0, 1);
         const rangeEnd = new Date(year, 11, 31, 23, 59, 59, 999);
-        const absences = await prismaAny.absence.findMany({
+        const absences = await prisma.absence.findMany({
           where: {
             userId: userId!,
             type: 'sick_leave',
@@ -459,7 +457,7 @@ router.post('/', authenticateToken, handleUploadIfMultipart, async (req: AuthReq
           });
         }
 
-        await prismaAny.absenceFile.createMany({
+        await prisma.absenceFile.createMany({
           data: storedFiles,
         });
       } catch (error) {

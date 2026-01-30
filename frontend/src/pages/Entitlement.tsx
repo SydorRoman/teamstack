@@ -9,6 +9,8 @@ interface VacationEntitlement {
   futureAccrue: number;
   pendingForApproval: number;
   approved: number;
+  nextAccrueDate: string | null;
+  nextAccrueAmount: number;
 }
 
 interface SickLeaveEntitlement {
@@ -171,6 +173,18 @@ export default function Entitlement() {
                     : '-'}
                 </span>
               </div>
+              {entitlement.type === 'vacation' && (
+                <>
+                  <div className="detail-item">
+                    <span className="detail-label">Next accrual:</span>
+                    <span className="detail-value">
+                      {entitlement.nextAccrueDate
+                        ? `${format(new Date(entitlement.nextAccrueDate), 'MMM dd, yyyy')} (+${entitlement.nextAccrueAmount.toFixed(2)} Days)`
+                        : '—'}
+                    </span>
+                  </div>
+                </>
+              )}
               <div className="detail-item">
                 <span className="detail-label">Pending For Approval:</span>
                 <span className="detail-value">

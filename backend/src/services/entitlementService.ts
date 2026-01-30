@@ -56,6 +56,8 @@ interface EntitlementBreakdown {
 
 interface VacationEntitlement extends EntitlementBreakdown {
   type: 'vacation';
+  nextAccrueDate: string | null;
+  nextAccrueAmount: number;
 }
 
 interface SickLeaveEntitlement extends EntitlementBreakdown {
@@ -94,6 +96,8 @@ export async function calculateVacationEntitlement(
       futureAccrue: settings.vacationFutureAccrueDays,
       pendingForApproval: 0,
       approved: 0,
+      nextAccrueDate: null,
+      nextAccrueAmount: 0,
     };
   }
 
@@ -108,6 +112,8 @@ export async function calculateVacationEntitlement(
       futureAccrue: settings.vacationFutureAccrueDays,
       pendingForApproval: 0,
       approved: 0,
+      nextAccrueDate: null,
+      nextAccrueAmount: 0,
     };
   }
 
@@ -142,11 +148,13 @@ export async function calculateVacationEntitlement(
   const accruedThisYear = monthsAccrued * VACATION_DAYS_PER_MONTH;
 
   // Get approved vacation absences for current year (working days only)
-  const approvedAbsences = await prisma.absence.findMany({
+  const allVacationAbsences = await prisma.absence.findMany({
     where: {
       userId,
       type: 'vacation',
-      status: 'approved',
+      status: {
+        in: ['approved', 'pending'],
+      },
       from: {
         gte: yearStart,
       },
@@ -154,33 +162,26 @@ export async function calculateVacationEntitlement(
   });
 
   let approvedWorkingDays = 0;
-  for (const absence of approvedAbsences) {
-    approvedWorkingDays += countWorkingDays(new Date(absence.from), new Date(absence.to));
-  }
-
-  // Get pending vacation absences for current year (working days only)
-  const pendingAbsences = await prisma.absence.findMany({
-    where: {
-      userId,
-      type: 'vacation',
-      status: 'pending',
-      from: {
-        gte: yearStart,
-      },
-    },
-  });
-
   let pendingWorkingDays = 0;
-  for (const absence of pendingAbsences) {
-    pendingWorkingDays += countWorkingDays(new Date(absence.from), new Date(absence.to));
+
+  for (const absence of allVacationAbsences) {
+    const days = countWorkingDays(new Date(absence.from), new Date(absence.to));
+    if (absence.status === 'approved') {
+      approvedWorkingDays += days;
+    } else if (absence.status === 'pending') {
+      pendingWorkingDays += days;
+    }
   }
 
   // Currently allowed = accrued + carried over - approved - pending
-  const currentlyAllowed = Math.max(0, accruedThisYear + carriedOverDays - approvedWorkingDays - pendingWorkingDays);
+  const currentlyAllowed = accruedThisYear + carriedOverDays - approvedWorkingDays - pendingWorkingDays;
 
   // Future accrue = next month's accrual (1.5 days)
   const settings = await getSettings();
-  const futureAccrue = settings.vacationFutureAccrueDays;
+  const monthlyAccrue = settings.vacationFutureAccrueDays;
+  const nextAccrualDate = getNextVacationAccrualDate(currentDate, user.hireDate);
+  const monthsRemaining = getRemainingAccrualMonths(currentDate, nextAccrualDate);
+  const futureAccrue = monthsRemaining * monthlyAccrue;
 
   return {
     type: 'vacation',
@@ -188,7 +189,38 @@ export async function calculateVacationEntitlement(
     futureAccrue: Math.round(futureAccrue * 100) / 100,
     pendingForApproval: Math.round(pendingWorkingDays * 100) / 100,
     approved: Math.round(approvedWorkingDays * 100) / 100,
+    nextAccrueDate: nextAccrualDate ? nextAccrualDate.toISOString() : null,
+    nextAccrueAmount: Math.round(monthlyAccrue * 100) / 100,
   };
+}
+
+function getNextVacationAccrualDate(currentDate: Date, hireDate: Date): Date | null {
+  const today = new Date(currentDate);
+  const nextMonthAccrual = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+  const hireAccrualStart = new Date(
+    hireDate.getFullYear(),
+    hireDate.getMonth() + (hireDate.getDate() > 1 ? 1 : 0),
+    1
+  );
+
+  if (nextMonthAccrual < hireAccrualStart) {
+    return hireAccrualStart;
+  }
+
+  return nextMonthAccrual;
+}
+
+function getRemainingAccrualMonths(currentDate: Date, nextAccrualDate: Date | null): number {
+  if (!nextAccrualDate) {
+    return 0;
+  }
+
+  const currentYear = currentDate.getFullYear();
+  if (nextAccrualDate.getFullYear() !== currentYear) {
+    return 0;
+  }
+
+  return 12 - nextAccrualDate.getMonth();
 }
 
 function countWorkingDaysWithinRange(from: Date, to: Date, rangeStart: Date, rangeEnd: Date): number {
