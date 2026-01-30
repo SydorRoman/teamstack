@@ -449,14 +449,14 @@ export default function Admin() {
                   onChange={(e) => setNewUser({ ...newUser, country: e.target.value })}
                 />
               </div>
-              <div className="form-group">
-                <label>
+              <div className="form-group admin-checkbox">
+                <label className="checkbox-pill">
                   <input
                     type="checkbox"
                     checked={newUser.isAdmin}
                     onChange={(e) => setNewUser({ ...newUser, isAdmin: e.target.checked })}
                   />
-                  Is Admin
+                  <span>Is Admin</span>
                 </label>
               </div>
               <div className="form-group full-width">
