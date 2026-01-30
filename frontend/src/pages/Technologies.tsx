@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useAuth } from '../contexts/AuthContext';
 import './Technologies.css';
 
 interface Technology {
@@ -9,11 +8,7 @@ interface Technology {
 }
 
 export default function Technologies() {
-  const { user } = useAuth();
-  const isAdmin = user?.isAdmin || false;
-  
   const [technologies, setTechnologies] = useState<Technology[]>([]);
-  const [userTechnologies, setUserTechnologies] = useState<string[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingTech, setEditingTech] = useState<Technology | null>(null);
   const [techName, setTechName] = useState('');
@@ -23,10 +18,7 @@ export default function Technologies() {
 
   useEffect(() => {
     fetchTechnologies();
-    if (!isAdmin) {
-      fetchUserTechnologies();
-    }
-  }, [isAdmin]);
+  }, []);
 
   const fetchTechnologies = async () => {
     try {
@@ -36,15 +28,6 @@ export default function Technologies() {
       console.error('Error fetching technologies:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchUserTechnologies = async () => {
-    try {
-      const response = await axios.get('/api/user-technologies/me');
-      setUserTechnologies(response.data.map((t: Technology) => t.id));
-    } catch (error) {
-      console.error('Error fetching user technologies:', error);
     }
   };
 
@@ -88,28 +71,9 @@ export default function Technologies() {
     try {
       await axios.delete(`/api/technologies/${id}`);
       fetchTechnologies();
-      if (!isAdmin) {
-        fetchUserTechnologies();
-      }
     } catch (error: any) {
       console.error('Error deleting technology:', error);
       alert(error.response?.data?.error || 'Failed to delete technology');
-    }
-  };
-
-  const handleUserTechToggle = async (techId: string) => {
-    const newTechIds = userTechnologies.includes(techId)
-      ? userTechnologies.filter((id) => id !== techId)
-      : [...userTechnologies, techId];
-
-    try {
-      await axios.put('/api/user-technologies/me', {
-        technologyIds: newTechIds,
-      });
-      setUserTechnologies(newTechIds);
-    } catch (error: any) {
-      console.error('Error updating user technologies:', error);
-      alert(error.response?.data?.error || 'Failed to update technologies');
     }
   };
 
@@ -120,19 +84,11 @@ export default function Technologies() {
   return (
     <div className="technologies-page">
       <div className="page-header">
-        <h1>{isAdmin ? 'Technologies' : 'My Technologies'}</h1>
-        {isAdmin && (
-          <button className="btn-primary" onClick={handleCreate}>
-            Create Technology
-          </button>
-        )}
+        <h1>Technologies</h1>
+        <button className="btn-primary" onClick={handleCreate}>
+          Create Technology
+        </button>
       </div>
-
-      {!isAdmin && (
-        <div className="info-box">
-          <p>Select the technologies you work with. This helps admins find the right people for projects.</p>
-        </div>
-      )}
 
       <div className="search-section">
         <input
@@ -154,49 +110,29 @@ export default function Technologies() {
             return <p className="no-data">No technologies found</p>;
           }
 
-          // Sort: selected technologies first
-          const sortedTechnologies = [...filteredTechnologies].sort((a, b) => {
-            const aSelected = userTechnologies.includes(a.id);
-            const bSelected = userTechnologies.includes(b.id);
-            if (aSelected && !bSelected) return -1;
-            if (!aSelected && bSelected) return 1;
-            return 0;
-          });
-
-          return sortedTechnologies.map((tech) => (
+          return filteredTechnologies.map((tech) => (
             <div key={tech.id} className="technology-item">
               <span className="tech-name">{tech.name}</span>
-              {isAdmin ? (
-                <div className="tech-actions">
-                  <button
-                    className="btn-secondary btn-sm"
-                    onClick={() => handleEdit(tech)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="btn-danger btn-sm"
-                    onClick={() => handleDelete(tech.id)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              ) : (
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={userTechnologies.includes(tech.id)}
-                    onChange={() => handleUserTechToggle(tech.id)}
-                  />
-                  <span className="toggle-slider"></span>
-                </label>
-              )}
+              <div className="tech-actions">
+                <button
+                  className="btn-secondary btn-sm"
+                  onClick={() => handleEdit(tech)}
+                >
+                  Edit
+                </button>
+                <button
+                  className="btn-danger btn-sm"
+                  onClick={() => handleDelete(tech.id)}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           ));
         })()}
       </div>
 
-      {showModal && isAdmin && (
+      {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>{editingTech ? 'Edit Technology' : 'Create Technology'}</h2>

@@ -90,15 +90,15 @@ export default function Layout() {
               Timesheets
             </Link>
           </li>
-          <li>
-            <Link to="/technologies" className={isActive('/technologies') ? 'active' : ''}>
-              Technologies
-            </Link>
-          </li>
           {user?.isAdmin && (
             <>
               <li className="nav-separator" aria-hidden="true">
                 <hr className="nav-separator-line" />
+              </li>
+              <li>
+                <Link to="/technologies" className={adminLinkClass(isActive('/technologies'))}>
+                  Technologies
+                </Link>
               </li>
               <li>
                 <Link to="/admin" className={adminLinkClass(isActive('/admin'))}>

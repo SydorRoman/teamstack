@@ -63,7 +63,14 @@ function App() {
             <Route path="employees/:id" element={<EmployeeProfile />} />
             <Route path="entitlement" element={<Entitlement />} />
             <Route path="timesheets" element={<Timesheets />} />
-            <Route path="technologies" element={<Technologies />} />
+            <Route
+              path="technologies"
+              element={
+                <AdminRoute>
+                  <Technologies />
+                </AdminRoute>
+              }
+            />
             <Route
               path="admin"
               element={
