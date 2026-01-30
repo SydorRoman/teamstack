@@ -2,13 +2,24 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
+const prismaAny = prisma as typeof prisma & { settings: any };
 
 async function main() {
   console.log('Seeding database...');
 
+  // Ensure settings exist
+  await prismaAny.settings.upsert({
+    where: { id: 'global' },
+    update: {},
+    create: {
+      id: 'global',
+      vacationFutureAccrueDays: 1.5,
+      sickLeaveFutureAccrueDays: 1.2,
+    },
+  });
+
   // Check if projects already exist
   let project1 = await prisma.project.findFirst({ where: { name: 'Web Development' } });
-  let project2 = await prisma.project.findFirst({ where: { name: 'Mobile App' } });
 
   // Create projects if they don't exist
   if (!project1) {
@@ -19,15 +30,7 @@ async function main() {
     });
   }
 
-  if (!project2) {
-    project2 = await prisma.project.create({
-      data: {
-        name: 'Mobile App',
-      },
-    });
-  }
-
-  console.log('Created/found projects:', { project1, project2 });
+  console.log('Created/found projects:', { project1 });
 
   // Hash password
   const passwordHash = await bcrypt.hash('password123', 10);
@@ -46,7 +49,7 @@ async function main() {
       city: 'New York',
       country: 'USA',
       projects: {
-        connect: [{ id: project1.id }, { id: project2.id }],
+        connect: [{ id: project1.id }],
       },
     },
   });
@@ -97,25 +100,6 @@ async function main() {
     },
   });
 
-  // Create a pending absence (only if it doesn't exist)
-  const existingAbsence = await prisma.absence.findFirst({
-    where: {
-      userId: employee.id,
-      status: 'pending',
-    },
-  });
-
-  if (!existingAbsence) {
-    await prisma.absence.create({
-      data: {
-        userId: employee.id,
-        type: 'vacation',
-        from: new Date('2024-02-01'),
-        to: new Date('2024-02-05'),
-        status: 'pending',
-      },
-    });
-  }
 
   console.log('Created/found users:', { admin, employee });
 
@@ -177,7 +161,7 @@ async function main() {
         date: date,
         start: start,
         end: end,
-        projectId: project2.id,
+        projectId: project1.id,
         note: `Administrative work`,
       },
     });

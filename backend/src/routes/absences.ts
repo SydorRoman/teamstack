@@ -142,6 +142,19 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
     const { userId } = req;
     const data = createAbsenceSchema.parse(req.body);
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const absenceStart = new Date(data.from);
+    absenceStart.setHours(0, 0, 0, 0);
+
+    // Allow backdated absences up to 14 calendar days in the past
+    const backdatedDays = Math.floor((today.getTime() - absenceStart.getTime()) / (1000 * 60 * 60 * 24));
+    if (absenceStart < today && backdatedDays > 14) {
+      return res.status(400).json({
+        error: 'Backdated absences can only be created up to 14 days in the past.',
+      });
+    }
+
     // For vacation requests, add additional validations
     if (data.type === 'vacation') {
       const user = await prisma.user.findUnique({
@@ -160,20 +173,17 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       }
 
       // Check 10 working days notice requirement
-      const vacationStart = new Date(data.from);
-      vacationStart.setHours(0, 0, 0, 0);
-      
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      // Calculate 10 working days from today
-      const requiredDate = addWorkingDays(today, 10);
-      
-      if (vacationStart < requiredDate) {
-        const workingDaysUntilStart = countWorkingDays(today, vacationStart);
-        return res.status(400).json({
-          error: `Vacation request must be created at least 10 working days before the start date. You have ${workingDaysUntilStart} working days until ${vacationStart.toLocaleDateString()}`,
-        });
+      // Only enforce for future dates; backdated vacations are allowed
+      if (absenceStart >= today) {
+        // Calculate 10 working days from today
+        const requiredDate = addWorkingDays(today, 10);
+        
+        if (absenceStart < requiredDate) {
+          const workingDaysUntilStart = countWorkingDays(today, absenceStart);
+          return res.status(400).json({
+            error: `Vacation request must be created at least 10 working days before the start date. You have ${workingDaysUntilStart} working days until ${absenceStart.toLocaleDateString()}`,
+          });
+        }
       }
     }
 

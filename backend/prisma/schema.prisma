@@ -58,6 +58,7 @@ model User {
   workLogs     WorkLog[]
   technologies UserTechnology[]
   position     Position?        @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  settingsChangeLogs SettingsChangeLog[]
 
   @@map("users")
 }
@@ -89,6 +90,34 @@ model Entitlement {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("entitlements")
+}
+
+model Settings {
+  id                        String               @id
+  vacationFutureAccrueDays  Float                @default(1.5)
+  sickLeaveFutureAccrueDays Float                @default(0.8333333333)
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+
+  changeLogs SettingsChangeLog[]
+
+  @@map("settings")
+}
+
+model SettingsChangeLog {
+  id                           String   @id @default(uuid())
+  settingsId                   String
+  adminId                      String
+  previousVacationFutureAccrue Float
+  newVacationFutureAccrue      Float
+  previousSickLeaveFutureAccrue Float
+  newSickLeaveFutureAccrue     Float
+  createdAt                    DateTime @default(now())
+
+  settings Settings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+  admin    User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@map("settings_change_logs")
 }
 
 model Project {

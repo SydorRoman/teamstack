@@ -9,6 +9,7 @@ interface PendingRequest {
   from: string;
   to: string;
   status: 'pending';
+  isBackdated?: boolean;
   user: {
     id: string;
     firstName: string;
@@ -257,7 +258,10 @@ export default function Admin() {
                   <div className="request-user">
                     {request.user.firstName} {request.user.lastName}
                   </div>
-                  <div className="request-type">{getTypeLabel(request.type)}</div>
+                  <div className="request-type">
+                    {getTypeLabel(request.type)}
+                    {request.isBackdated && <span className="request-badge">Backdated</span>}
+                  </div>
                   <div className="request-dates">
                     {format(new Date(request.from), 'MMM dd, yyyy')} -{' '}
                     {format(new Date(request.to), 'MMM dd, yyyy')}

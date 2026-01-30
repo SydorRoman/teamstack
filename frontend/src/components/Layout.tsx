@@ -109,6 +109,11 @@ export default function Layout() {
                 </Link>
               </li>
               <li>
+                <Link to="/settings" className={adminLinkClass(isActive('/settings'))}>
+                  Settings
+                </Link>
+              </li>
+              <li>
                 <Link to="/reports" className={adminLinkClass(isActive('/reports'))}>
                   Reports
                 </Link>

@@ -7,6 +7,7 @@ import {
 } from '../utils/dateUtils.js';
 
 const prisma = new PrismaClient();
+const prismaAny = prisma as typeof prisma & { settings: any };
 
 /**
  * Vacation policy:
@@ -25,6 +26,26 @@ const VACATION_CARRYOVER_MAX = 10;
  * - Accrued from beginning of new year
  */
 const SICK_LEAVE_DAYS_PER_MONTH = 10 / 12; // ~0.83
+
+const SETTINGS_ID = 'global';
+
+async function getSettings() {
+  const settings = await prismaAny.settings.findUnique({
+    where: { id: SETTINGS_ID },
+  });
+
+  if (settings) {
+    return settings;
+  }
+
+  return prismaAny.settings.create({
+    data: {
+      id: SETTINGS_ID,
+      vacationFutureAccrueDays: VACATION_DAYS_PER_MONTH,
+      sickLeaveFutureAccrueDays: SICK_LEAVE_DAYS_PER_MONTH,
+    },
+  });
+}
 
 interface EntitlementBreakdown {
   currentlyAllowed: number;
@@ -69,10 +90,11 @@ export async function calculateVacationEntitlement(
 
   if (!user || !user.hireDate) {
     // If no hireDate, return 0 entitlement
+    const settings = await getSettings();
     return {
       type: 'vacation',
       currentlyAllowed: 0,
-      futureAccrue: VACATION_DAYS_PER_MONTH,
+      futureAccrue: settings.vacationFutureAccrueDays,
       pendingForApproval: 0,
       approved: 0,
     };
@@ -82,10 +104,11 @@ export async function calculateVacationEntitlement(
   const trialCompleted = hasCompletedTrialPeriod(user.hireDate);
   
   if (!trialCompleted) {
+    const settings = await getSettings();
     return {
       type: 'vacation',
       currentlyAllowed: 0,
-      futureAccrue: VACATION_DAYS_PER_MONTH,
+      futureAccrue: settings.vacationFutureAccrueDays,
       pendingForApproval: 0,
       approved: 0,
     };
@@ -155,7 +178,8 @@ export async function calculateVacationEntitlement(
   const currentlyAllowed = Math.max(0, accruedThisYear + carriedOverDays - approvedWorkingDays - pendingWorkingDays);
 
   // Future accrue = next month's accrual (1.5 days)
-  const futureAccrue = VACATION_DAYS_PER_MONTH;
+  const settings = await getSettings();
+  const futureAccrue = settings.vacationFutureAccrueDays;
 
   return {
     type: 'vacation',
@@ -179,10 +203,11 @@ export async function calculateSickLeaveEntitlement(
 
   if (!user || !user.hireDate) {
     // If no hireDate, return 0 entitlement
+    const settings = await getSettings();
     return {
       type: 'sick_leave',
       currentlyAllowed: 0,
-      futureAccrue: SICK_LEAVE_DAYS_PER_MONTH,
+      futureAccrue: settings.sickLeaveFutureAccrueDays,
       pendingForApproval: 0,
       approved: 0,
     };
@@ -238,7 +263,8 @@ export async function calculateSickLeaveEntitlement(
   const currentlyAllowed = Math.max(0, accruedThisYear - approvedWorkingDays - pendingWorkingDays);
 
   // Future accrue = next month's accrual
-  const futureAccrue = SICK_LEAVE_DAYS_PER_MONTH;
+  const settings = await getSettings();
+  const futureAccrue = settings.sickLeaveFutureAccrueDays;
 
   return {
     type: 'sick_leave',

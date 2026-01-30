@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 const router = express.Router();
 const prisma = new PrismaClient();
+const prismaAny = prisma as typeof prisma & { settings: any; settingsChangeLog: any };
 
 router.use(authenticateToken);
 
@@ -45,6 +46,13 @@ router.get('/projects', async (req: AuthRequest, res) => {
 
 // All other routes require admin access
 router.use(requireAdmin);
+
+const SETTINGS_ID = 'global';
+
+const updateSettingsSchema = z.object({
+  vacationFutureAccrueDays: z.number().min(0),
+  sickLeaveFutureAccrueDays: z.number().min(0),
+});
 
 const createUserSchema = z.object({
   firstName: z.string().min(1),
@@ -115,9 +123,133 @@ router.get('/pending-requests', async (req, res) => {
       },
     });
 
-    res.json(absences);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const response = absences.map((absence) => ({
+      ...absence,
+      isBackdated: new Date(absence.from).setHours(0, 0, 0, 0) < today.getTime(),
+    }));
+
+    res.json(response);
   } catch (error) {
     console.error('Error fetching pending requests:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/settings', async (req, res) => {
+  try {
+    const settings = await prismaAny.settings.findUnique({
+      where: { id: SETTINGS_ID },
+    });
+
+    if (!settings) {
+      const created = await prismaAny.settings.create({
+        data: {
+          id: SETTINGS_ID,
+          vacationFutureAccrueDays: 1.5,
+          sickLeaveFutureAccrueDays: 10 / 12,
+        },
+      });
+      return res.json(created);
+    }
+
+    res.json(settings);
+  } catch (error) {
+    console.error('Error fetching settings:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/settings/logs', async (req, res) => {
+  try {
+    const logs = await prismaAny.settingsChangeLog.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        admin: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    res.json(logs);
+  } catch (error) {
+    console.error('Error fetching settings change logs:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.put('/settings', async (req: AuthRequest, res) => {
+  try {
+    const { userId } = req;
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    const data = updateSettingsSchema.parse(req.body);
+
+    const admin = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!admin) {
+      return res.status(400).json({ error: 'Admin user not found. Please log in again.' });
+    }
+
+    const existing = await prismaAny.settings.findUnique({
+      where: { id: SETTINGS_ID },
+    });
+
+    const settings = await prismaAny.settings.upsert({
+      where: { id: SETTINGS_ID },
+      update: {
+        vacationFutureAccrueDays: data.vacationFutureAccrueDays,
+        sickLeaveFutureAccrueDays: data.sickLeaveFutureAccrueDays,
+      },
+      create: {
+        id: SETTINGS_ID,
+        vacationFutureAccrueDays: data.vacationFutureAccrueDays,
+        sickLeaveFutureAccrueDays: data.sickLeaveFutureAccrueDays,
+      },
+    });
+
+    if (existing) {
+      await prismaAny.settingsChangeLog.create({
+        data: {
+          settingsId: settings.id,
+          adminId: admin.id,
+          previousVacationFutureAccrue: existing.vacationFutureAccrueDays,
+          newVacationFutureAccrue: settings.vacationFutureAccrueDays,
+          previousSickLeaveFutureAccrue: existing.sickLeaveFutureAccrueDays,
+          newSickLeaveFutureAccrue: settings.sickLeaveFutureAccrueDays,
+        },
+      });
+    } else {
+      await prismaAny.settingsChangeLog.create({
+        data: {
+          settingsId: settings.id,
+          adminId: admin.id,
+          previousVacationFutureAccrue: settings.vacationFutureAccrueDays,
+          newVacationFutureAccrue: settings.vacationFutureAccrueDays,
+          previousSickLeaveFutureAccrue: settings.sickLeaveFutureAccrueDays,
+          newSickLeaveFutureAccrue: settings.sickLeaveFutureAccrueDays,
+        },
+      });
+    }
+
+    res.json(settings);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
+    console.error('Error updating settings:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

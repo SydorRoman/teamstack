@@ -10,6 +10,7 @@ import Timesheets from './pages/Timesheets';
 import Reports from './pages/Reports';
 import Projects from './pages/Projects';
 import Technologies from './pages/Technologies';
+import Settings from './pages/Settings';
 import Layout from './components/Layout';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -92,6 +93,14 @@ function App() {
               element={
                 <AdminRoute>
                   <Projects />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="settings"
+              element={
+                <AdminRoute>
+                  <Settings />
                 </AdminRoute>
               }
             />
