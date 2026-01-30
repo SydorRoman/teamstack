@@ -14,7 +14,9 @@ async function main() {
     create: {
       id: 'global',
       vacationFutureAccrueDays: 1.5,
-      sickLeaveFutureAccrueDays: 1.2,
+      sickLeaveWithoutCertificateLimit: 5,
+      sickLeaveWithCertificateLimit: 5,
+      vacationCarryoverLimit: 0,
     },
   });
 
@@ -102,72 +104,6 @@ async function main() {
 
 
   console.log('Created/found users:', { admin, employee });
-
-  // Create sample work logs
-  const today = new Date();
-  const currentMonth = today.getMonth();
-  const currentYear = today.getFullYear();
-
-  // Create work logs for employee (current month)
-  for (let day = 1; day <= 15; day++) {
-    const date = new Date(currentYear, currentMonth, day);
-    
-    // Skip weekends
-    if (date.getDay() === 0 || date.getDay() === 6) continue;
-    
-    // Skip future dates
-    if (date > today) continue;
-
-    const start = new Date(date);
-    start.setHours(9, 0, 0, 0);
-
-    const end = new Date(date);
-    end.setHours(17, 30, 0, 0);
-
-    await prisma.workLog.upsert({
-      where: { id: `worklog-${employee.id}-${day}` },
-      update: {},
-      create: {
-        id: `worklog-${employee.id}-${day}`,
-        userId: employee.id,
-        date: date,
-        start: start,
-        end: end,
-        projectId: project1.id,
-        note: `Worked on ${project1.name}`,
-      },
-    });
-  }
-
-  // Create some work logs for admin too
-  for (let day = 1; day <= 10; day++) {
-    const date = new Date(currentYear, currentMonth, day);
-    
-    if (date.getDay() === 0 || date.getDay() === 6) continue;
-    if (date > today) continue;
-
-    const start = new Date(date);
-    start.setHours(8, 30, 0, 0);
-
-    const end = new Date(date);
-    end.setHours(18, 0, 0, 0);
-
-    await prisma.workLog.upsert({
-      where: { id: `worklog-${admin.id}-${day}` },
-      update: {},
-      create: {
-        id: `worklog-${admin.id}-${day}`,
-        userId: admin.id,
-        date: date,
-        start: start,
-        end: end,
-        projectId: project1.id,
-        note: `Administrative work`,
-      },
-    });
-  }
-
-  console.log('Created sample work logs');
 
   console.log('Seed completed successfully!');
   console.log('\nLogin credentials:');

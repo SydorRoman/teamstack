@@ -17,7 +17,6 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res) => {
     const absences = await prisma.absence.findMany({
       where: {
         userId: userId!,
-        status: { in: ['approved', 'pending'] },
       },
       orderBy: {
         from: 'desc',

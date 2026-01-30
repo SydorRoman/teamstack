@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { DateRangePicker } from '../components/DateRangePicker';
 import './AbsenceForm.css';
@@ -8,6 +9,7 @@ export interface AbsenceFormData {
     from: string | null;
     to: string | null;
   };
+  files?: File[];
 }
 
 interface AbsenceFormProps {
@@ -41,7 +43,19 @@ export function AbsenceForm({
   const disablePast = false;
 
   const dateRange = watch('dateRange');
+  const selectedType = watch('type');
   const hasValidDateRange = dateRange?.from && dateRange?.to;
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (selectedType !== 'sick_leave') {
+      setSelectedFiles([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }, [selectedType]);
 
   const handleFormSubmit = (data: AbsenceFormData) => {
     if (data.dateRange?.from && data.dateRange?.to) {
@@ -51,8 +65,23 @@ export function AbsenceForm({
           from: data.dateRange.from,
           to: data.dateRange.to,
         },
+        files: selectedFiles,
       });
     }
+  };
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const incoming = Array.from(event.target.files ?? []);
+    if (incoming.length > 0) {
+      setSelectedFiles((prev) => [...prev, ...incoming]);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -80,6 +109,39 @@ export function AbsenceForm({
           disablePast={disablePast}
           maxRangeDays={30}
         />
+
+        {selectedType === 'sick_leave' && (
+          <div className="form-group">
+            <label htmlFor="files">Upload certificate</label>
+            <input
+              id="files"
+              type="file"
+              multiple
+              ref={fileInputRef}
+              onChange={handleFileChange}
+            />
+            {selectedFiles.length > 0 && (
+              <div className="file-list">
+                {selectedFiles.map((file, index) => (
+                  <div key={`${file.name}-${file.lastModified}-${index}`} className="file-list-item">
+                    <button
+                      type="button"
+                      className="file-remove-button"
+                      onClick={() => handleRemoveFile(index)}
+                      aria-label={`Remove ${file.name}`}
+                    >
+                      X
+                    </button>
+                    <span className="file-name">{file.name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <span className="form-hint">
+              Optional for 1 day. Required for 2+ consecutive days.
+            </span>
+          </div>
+        )}
 
         <div className="form-actions">
           <button

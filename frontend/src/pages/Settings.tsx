@@ -5,7 +5,9 @@ import './Settings.css';
 
 interface SettingsData {
   vacationFutureAccrueDays: number;
-  sickLeaveFutureAccrueDays: number;
+  sickLeaveWithoutCertificateLimit: number;
+  sickLeaveWithCertificateLimit: number;
+  vacationCarryoverLimit: number;
   updatedAt: string;
 }
 
@@ -14,8 +16,12 @@ interface SettingsLog {
   createdAt: string;
   previousVacationFutureAccrue: number;
   newVacationFutureAccrue: number;
-  previousSickLeaveFutureAccrue: number;
-  newSickLeaveFutureAccrue: number;
+  previousSickLeaveWithoutCertificateLimit?: number | null;
+  newSickLeaveWithoutCertificateLimit?: number | null;
+  previousSickLeaveWithCertificateLimit?: number | null;
+  newSickLeaveWithCertificateLimit?: number | null;
+  previousVacationCarryoverLimit?: number | null;
+  newVacationCarryoverLimit?: number | null;
   admin: {
     id: string;
     firstName: string;
@@ -28,7 +34,9 @@ export default function Settings() {
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [logs, setLogs] = useState<SettingsLog[]>([]);
   const [vacationFutureAccrueDays, setVacationFutureAccrueDays] = useState('');
-  const [sickLeaveFutureAccrueDays, setSickLeaveFutureAccrueDays] = useState('');
+  const [sickLeaveWithoutCertificateLimit, setSickLeaveWithoutCertificateLimit] = useState('');
+  const [sickLeaveWithCertificateLimit, setSickLeaveWithCertificateLimit] = useState('');
+  const [vacationCarryoverLimit, setVacationCarryoverLimit] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -42,7 +50,13 @@ export default function Settings() {
       const response = await axios.get('/api/admin/settings');
       setSettings(response.data);
       setVacationFutureAccrueDays(response.data.vacationFutureAccrueDays.toString());
-      setSickLeaveFutureAccrueDays(response.data.sickLeaveFutureAccrueDays.toString());
+      setSickLeaveWithoutCertificateLimit(
+        response.data.sickLeaveWithoutCertificateLimit.toString()
+      );
+      setSickLeaveWithCertificateLimit(
+        response.data.sickLeaveWithCertificateLimit.toString()
+      );
+      setVacationCarryoverLimit(response.data.vacationCarryoverLimit.toString());
     } catch (error) {
       console.error('Error fetching settings:', error);
     } finally {
@@ -61,15 +75,27 @@ export default function Settings() {
 
   const handleSave = async () => {
     const vacationValue = Number(vacationFutureAccrueDays);
-    const sickLeaveValue = Number(sickLeaveFutureAccrueDays);
+    const withoutCertificateLimit = Number(sickLeaveWithoutCertificateLimit);
+    const withCertificateLimit = Number(sickLeaveWithCertificateLimit);
+    const carryoverLimit = Number(vacationCarryoverLimit);
 
-    if (Number.isNaN(vacationValue) || Number.isNaN(sickLeaveValue)) {
-      alert('Please enter valid numbers for accrual values.');
+    if (
+      Number.isNaN(vacationValue) ||
+      Number.isNaN(withoutCertificateLimit) ||
+      Number.isNaN(withCertificateLimit) ||
+      Number.isNaN(carryoverLimit)
+    ) {
+      alert('Please enter valid numbers for settings values.');
       return;
     }
 
-    if (vacationValue < 0 || sickLeaveValue < 0) {
-      alert('Accrual values must be zero or positive.');
+    if (
+      vacationValue < 0 ||
+      withoutCertificateLimit < 0 ||
+      withCertificateLimit < 0 ||
+      carryoverLimit < 0
+    ) {
+      alert('Settings values must be zero or positive.');
       return;
     }
 
@@ -77,7 +103,9 @@ export default function Settings() {
     try {
       const response = await axios.put('/api/admin/settings', {
         vacationFutureAccrueDays: vacationValue,
-        sickLeaveFutureAccrueDays: sickLeaveValue,
+        sickLeaveWithoutCertificateLimit: withoutCertificateLimit,
+        sickLeaveWithCertificateLimit: withCertificateLimit,
+        vacationCarryoverLimit: carryoverLimit,
       });
       setSettings(response.data);
       await fetchLogs();
@@ -112,13 +140,33 @@ export default function Settings() {
             />
           </div>
           <div className="settings-field">
-            <label>Sick Leave Future Accrue (days)</label>
+            <label>Sick Leave Without Certificate (days per year)</label>
             <input
               type="number"
               min="0"
-              step="0.01"
-              value={sickLeaveFutureAccrueDays}
-              onChange={(e) => setSickLeaveFutureAccrueDays(e.target.value)}
+              step="1"
+              value={sickLeaveWithoutCertificateLimit}
+              onChange={(e) => setSickLeaveWithoutCertificateLimit(e.target.value)}
+            />
+          </div>
+          <div className="settings-field">
+            <label>Sick Leave With Certificate (days per year)</label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={sickLeaveWithCertificateLimit}
+              onChange={(e) => setSickLeaveWithCertificateLimit(e.target.value)}
+            />
+          </div>
+          <div className="settings-field">
+            <label>Vacation Carryover (days per year)</label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={vacationCarryoverLimit}
+              onChange={(e) => setVacationCarryoverLimit(e.target.value)}
             />
           </div>
         </div>
@@ -151,14 +199,47 @@ export default function Settings() {
                   </div>
                 </div>
                 <div className="log-details">
-                  <div>
-                    Vacation: {log.previousVacationFutureAccrue.toFixed(2)} →{' '}
-                    {log.newVacationFutureAccrue.toFixed(2)}
-                  </div>
-                  <div>
-                    Sick Leave: {log.previousSickLeaveFutureAccrue.toFixed(2)} →{' '}
-                    {log.newSickLeaveFutureAccrue.toFixed(2)}
-                  </div>
+                  {(() => {
+                    const changes: string[] = [];
+                    if (log.previousVacationFutureAccrue !== log.newVacationFutureAccrue) {
+                      changes.push(
+                        `Vacation: ${log.previousVacationFutureAccrue.toFixed(2)} → ${log.newVacationFutureAccrue.toFixed(2)}`
+                      );
+                    }
+                    if (
+                      log.previousSickLeaveWithoutCertificateLimit !== undefined &&
+                      log.newSickLeaveWithoutCertificateLimit !== undefined &&
+                      log.previousSickLeaveWithoutCertificateLimit !== log.newSickLeaveWithoutCertificateLimit
+                    ) {
+                      changes.push(
+                        `Sick Leave w/o Certificate: ${log.previousSickLeaveWithoutCertificateLimit} → ${log.newSickLeaveWithoutCertificateLimit}`
+                      );
+                    }
+                    if (
+                      log.previousSickLeaveWithCertificateLimit !== undefined &&
+                      log.newSickLeaveWithCertificateLimit !== undefined &&
+                      log.previousSickLeaveWithCertificateLimit !== log.newSickLeaveWithCertificateLimit
+                    ) {
+                      changes.push(
+                        `Sick Leave w/ Certificate: ${log.previousSickLeaveWithCertificateLimit} → ${log.newSickLeaveWithCertificateLimit}`
+                      );
+                    }
+                    if (
+                      log.previousVacationCarryoverLimit !== undefined &&
+                      log.newVacationCarryoverLimit !== undefined &&
+                      log.previousVacationCarryoverLimit !== log.newVacationCarryoverLimit
+                    ) {
+                      changes.push(
+                        `Vacation Carryover: ${log.previousVacationCarryoverLimit} → ${log.newVacationCarryoverLimit}`
+                      );
+                    }
+
+                    if (changes.length === 0) {
+                      return <div>No changes</div>;
+                    }
+
+                    return changes.map((change) => <div key={change}>{change}</div>);
+                  })()}
                 </div>
               </div>
             ))}

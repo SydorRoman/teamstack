@@ -17,12 +17,10 @@ const prismaAny = prisma as typeof prisma & { settings: any };
  * - Only working days counted
  */
 const VACATION_DAYS_PER_MONTH = 1.5;
-const VACATION_CARRYOVER_MAX = 10;
 
 /**
  * Sick Leave policy:
  * - 10 days per year
- * - 0.83 days per month (10/12)
  * - Accrued from beginning of new year
  */
 const SICK_LEAVE_DAYS_PER_MONTH = 10 / 12; // ~0.83
@@ -42,7 +40,9 @@ async function getSettings() {
     data: {
       id: SETTINGS_ID,
       vacationFutureAccrueDays: VACATION_DAYS_PER_MONTH,
-      sickLeaveFutureAccrueDays: SICK_LEAVE_DAYS_PER_MONTH,
+      vacationCarryoverLimit: 0,
+      sickLeaveWithoutCertificateLimit: 5,
+      sickLeaveWithCertificateLimit: 5,
     },
   });
 }
@@ -83,9 +83,6 @@ export async function calculateVacationEntitlement(
 ): Promise<VacationEntitlement> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: {
-      entitlements: true,
-    },
   });
 
   if (!user || !user.hireDate) {
@@ -122,20 +119,24 @@ export async function calculateVacationEntitlement(
   // If hired during year, count from hire month to current month
   const startMonth = hireDate >= yearStart ? hireDate.getMonth() : 0;
   const endMonth = currentDate.getMonth();
+  const hireDay = hireDate.getDate();
   
-  // Calculate months including current month
+  // Calculate months including current month (accrual on 1st of month)
   let monthsAccrued = 0;
   if (hireDate >= yearStart) {
-    // Hired during current year - count from hire month
-    monthsAccrued = endMonth - startMonth + 1; // +1 to include current month
+    if (endMonth >= startMonth) {
+      monthsAccrued = endMonth - startMonth + 1;
+      if (hireDay > 1) {
+        monthsAccrued -= 1;
+      }
+    }
   } else {
-    // Hired before current year - full year accrual
     monthsAccrued = endMonth + 1; // +1 to include current month
   }
 
-  // Get carried over days from previous year (max 10)
-  const carriedOver = user.entitlements?.vacationDays || 0;
-  const carriedOverDays = Math.min(carriedOver, VACATION_CARRYOVER_MAX);
+  monthsAccrued = Math.max(0, monthsAccrued);
+
+  const carriedOverDays = await getPreviousYearCarryover(user, currentDate);
 
   // Calculate total accrued this year
   const accruedThisYear = monthsAccrued * VACATION_DAYS_PER_MONTH;
@@ -190,6 +191,100 @@ export async function calculateVacationEntitlement(
   };
 }
 
+function countWorkingDaysWithinRange(from: Date, to: Date, rangeStart: Date, rangeEnd: Date): number {
+  const start = new Date(Math.max(from.getTime(), rangeStart.getTime()));
+  const end = new Date(Math.min(to.getTime(), rangeEnd.getTime()));
+
+  if (end < start) {
+    return 0;
+  }
+
+  return countWorkingDays(start, end);
+}
+
+async function getPreviousYearCarryover(
+  user: { id: string; hireDate: Date | null },
+  currentDate: Date
+): Promise<number> {
+  if (!user.hireDate) {
+    return 0;
+  }
+
+  const settings = await getSettings();
+
+  const previousYear = currentDate.getFullYear() - 1;
+  const previousYearStart = new Date(previousYear, 0, 1);
+  const previousYearEnd = new Date(previousYear, 11, 31, 23, 59, 59, 999);
+  const hireDate = new Date(user.hireDate);
+
+  if (hireDate > previousYearEnd) {
+    return 0;
+  }
+
+  const hireMonth = hireDate.getMonth();
+  const hireDay = hireDate.getDate();
+  const monthsAccrued =
+    hireDate <= previousYearStart
+      ? 12
+      : Math.max(0, 12 - hireMonth - (hireDay > 1 ? 1 : 0));
+  const accruedPreviousYear = monthsAccrued * VACATION_DAYS_PER_MONTH;
+
+  const approvedAbsences = await prisma.absence.findMany({
+    where: {
+      userId: user.id,
+      type: 'vacation',
+      status: 'approved',
+      from: {
+        lte: previousYearEnd,
+      },
+      to: {
+        gte: previousYearStart,
+      },
+    },
+  });
+
+  const pendingAbsences = await prisma.absence.findMany({
+    where: {
+      userId: user.id,
+      type: 'vacation',
+      status: 'pending',
+      from: {
+        lte: previousYearEnd,
+      },
+      to: {
+        gte: previousYearStart,
+      },
+    },
+  });
+
+  let approvedWorkingDays = 0;
+  for (const absence of approvedAbsences) {
+    approvedWorkingDays += countWorkingDaysWithinRange(
+      new Date(absence.from),
+      new Date(absence.to),
+      previousYearStart,
+      previousYearEnd
+    );
+  }
+
+  let pendingWorkingDays = 0;
+  for (const absence of pendingAbsences) {
+    pendingWorkingDays += countWorkingDaysWithinRange(
+      new Date(absence.from),
+      new Date(absence.to),
+      previousYearStart,
+      previousYearEnd
+    );
+  }
+
+  const unused = accruedPreviousYear - approvedWorkingDays - pendingWorkingDays;
+  if (unused <= 0) {
+    return 0;
+  }
+
+  return Math.min(unused, settings.vacationCarryoverLimit);
+}
+
 /**
  * Calculate sick leave entitlement for a user
  */
@@ -207,7 +302,7 @@ export async function calculateSickLeaveEntitlement(
     return {
       type: 'sick_leave',
       currentlyAllowed: 0,
-      futureAccrue: settings.sickLeaveFutureAccrueDays,
+      futureAccrue: 0,
       pendingForApproval: 0,
       approved: 0,
     };
@@ -262,9 +357,7 @@ export async function calculateSickLeaveEntitlement(
   // Currently allowed = accrued - approved - pending
   const currentlyAllowed = Math.max(0, accruedThisYear - approvedWorkingDays - pendingWorkingDays);
 
-  // Future accrue = next month's accrual
-  const settings = await getSettings();
-  const futureAccrue = settings.sickLeaveFutureAccrueDays;
+  const futureAccrue = 0;
 
   return {
     type: 'sick_leave',

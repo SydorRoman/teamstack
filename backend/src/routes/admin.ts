@@ -51,7 +51,9 @@ const SETTINGS_ID = 'global';
 
 const updateSettingsSchema = z.object({
   vacationFutureAccrueDays: z.number().min(0),
-  sickLeaveFutureAccrueDays: z.number().min(0),
+  sickLeaveWithoutCertificateLimit: z.number().int().min(0),
+  sickLeaveWithCertificateLimit: z.number().int().min(0),
+  vacationCarryoverLimit: z.number().int().min(0),
 });
 
 const createUserSchema = z.object({
@@ -79,7 +81,7 @@ const createUserSchema = z.object({
       { message: 'Invalid date format. Use YYYY-MM-DD or ISO datetime' }
     )
     .or(z.literal('').transform(() => undefined)),
-  positionId: z.string().uuid().optional(),
+  positionId: z.string().uuid().optional().or(z.literal('').transform(() => undefined)),
   gender: z.string().optional(),
   city: z.string().optional(),
   country: z.string().optional(),
@@ -149,7 +151,9 @@ router.get('/settings', async (req, res) => {
         data: {
           id: SETTINGS_ID,
           vacationFutureAccrueDays: 1.5,
-          sickLeaveFutureAccrueDays: 10 / 12,
+          sickLeaveWithoutCertificateLimit: 5,
+          sickLeaveWithCertificateLimit: 5,
+          vacationCarryoverLimit: 0,
         },
       });
       return res.json(created);
@@ -211,35 +215,47 @@ router.put('/settings', async (req: AuthRequest, res) => {
       where: { id: SETTINGS_ID },
       update: {
         vacationFutureAccrueDays: data.vacationFutureAccrueDays,
-        sickLeaveFutureAccrueDays: data.sickLeaveFutureAccrueDays,
+        sickLeaveWithoutCertificateLimit: data.sickLeaveWithoutCertificateLimit,
+        sickLeaveWithCertificateLimit: data.sickLeaveWithCertificateLimit,
+        vacationCarryoverLimit: data.vacationCarryoverLimit,
       },
       create: {
         id: SETTINGS_ID,
         vacationFutureAccrueDays: data.vacationFutureAccrueDays,
-        sickLeaveFutureAccrueDays: data.sickLeaveFutureAccrueDays,
+        sickLeaveWithoutCertificateLimit: data.sickLeaveWithoutCertificateLimit,
+        sickLeaveWithCertificateLimit: data.sickLeaveWithCertificateLimit,
+        vacationCarryoverLimit: data.vacationCarryoverLimit,
       },
     });
 
-    if (existing) {
+    const previousVacationFutureAccrue =
+      existing?.vacationFutureAccrueDays ?? settings.vacationFutureAccrueDays;
+    const previousSickLeaveWithoutCertificateLimit =
+      existing?.sickLeaveWithoutCertificateLimit ?? settings.sickLeaveWithoutCertificateLimit;
+    const previousSickLeaveWithCertificateLimit =
+      existing?.sickLeaveWithCertificateLimit ?? settings.sickLeaveWithCertificateLimit;
+    const previousVacationCarryoverLimit =
+      existing?.vacationCarryoverLimit ?? settings.vacationCarryoverLimit;
+
+    const changesDetected =
+      previousVacationFutureAccrue !== settings.vacationFutureAccrueDays ||
+      previousSickLeaveWithoutCertificateLimit !== settings.sickLeaveWithoutCertificateLimit ||
+      previousSickLeaveWithCertificateLimit !== settings.sickLeaveWithCertificateLimit ||
+      previousVacationCarryoverLimit !== settings.vacationCarryoverLimit;
+
+    if (changesDetected) {
       await prismaAny.settingsChangeLog.create({
         data: {
           settingsId: settings.id,
           adminId: admin.id,
-          previousVacationFutureAccrue: existing.vacationFutureAccrueDays,
+          previousVacationFutureAccrue,
           newVacationFutureAccrue: settings.vacationFutureAccrueDays,
-          previousSickLeaveFutureAccrue: existing.sickLeaveFutureAccrueDays,
-          newSickLeaveFutureAccrue: settings.sickLeaveFutureAccrueDays,
-        },
-      });
-    } else {
-      await prismaAny.settingsChangeLog.create({
-        data: {
-          settingsId: settings.id,
-          adminId: admin.id,
-          previousVacationFutureAccrue: settings.vacationFutureAccrueDays,
-          newVacationFutureAccrue: settings.vacationFutureAccrueDays,
-          previousSickLeaveFutureAccrue: settings.sickLeaveFutureAccrueDays,
-          newSickLeaveFutureAccrue: settings.sickLeaveFutureAccrueDays,
+          previousSickLeaveWithoutCertificateLimit,
+          newSickLeaveWithoutCertificateLimit: settings.sickLeaveWithoutCertificateLimit,
+          previousSickLeaveWithCertificateLimit,
+          newSickLeaveWithCertificateLimit: settings.sickLeaveWithCertificateLimit,
+          previousVacationCarryoverLimit,
+          newVacationCarryoverLimit: settings.vacationCarryoverLimit,
         },
       });
     }
@@ -449,7 +465,7 @@ const updateUserSchema = z.object({
       { message: 'Invalid date format. Use YYYY-MM-DD or ISO datetime' }
     )
     .or(z.literal('').transform(() => undefined)),
-  positionId: z.string().uuid().optional(),
+  positionId: z.string().uuid().optional().or(z.literal('').transform(() => undefined)),
   gender: z.string().optional(),
   city: z.string().optional(),
   country: z.string().optional(),
@@ -511,6 +527,7 @@ router.put('/users/:id', async (req, res) => {
 
     res.json(userWithoutPassword);
   } catch (error) {
+    console.error('Error updating user:', error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }

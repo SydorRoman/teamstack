@@ -41,6 +41,7 @@ export default function Home() {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [userSearch, setUserSearch] = useState<string>('');
   const [showModal, setShowModal] = useState(false);
+  const [initialAbsenceValues, setInitialAbsenceValues] = useState<Partial<AbsenceFormData> | undefined>(undefined);
   const [isCreating, setIsCreating] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
@@ -103,14 +104,34 @@ export default function Home() {
 
     setIsCreating(true);
     try {
-      const payload = {
-        type: data.type,
-        from: data.dateRange.from,
-        to: data.dateRange.to,
-      };
+      if (data.type === 'sick_leave') {
+        const formData = new FormData();
+        formData.append('type', data.type);
+        formData.append('from', data.dateRange.from);
+        formData.append('to', data.dateRange.to);
 
-      await axios.post('/api/absences', payload);
+        if (data.files && data.files.length > 0) {
+          data.files.forEach((file) => {
+            formData.append('files', file);
+          });
+        }
+
+        await axios.post('/api/absences', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else {
+        const payload = {
+          type: data.type,
+          from: data.dateRange.from,
+          to: data.dateRange.to,
+        };
+
+        await axios.post('/api/absences', payload);
+      }
       setShowModal(false);
+      setInitialAbsenceValues(undefined);
       fetchAbsences();
     } catch (error: any) {
       console.error('Error creating absence:', error);
@@ -140,6 +161,24 @@ export default function Home() {
 
   const handleMonthChange = (date: Date) => {
     setCurrentDate(date);
+  };
+
+  const handleDayClick = (date: Date) => {
+    const selectedDate = new Date(date);
+    selectedDate.setHours(12, 0, 0, 0);
+
+    setInitialAbsenceValues({
+      dateRange: {
+        from: selectedDate.toISOString(),
+        to: selectedDate.toISOString(),
+      },
+    });
+    setShowModal(true);
+  };
+
+  const handleOpenNewAbsence = () => {
+    setInitialAbsenceValues(undefined);
+    setShowModal(true);
   };
 
   const filteredUsers = userSearch
@@ -184,7 +223,7 @@ export default function Home() {
     <div className="home-page">
       <div className="page-header">
         <h1>Calendar</h1>
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
+        <button className="btn-primary" onClick={handleOpenNewAbsence}>
           New Absence
         </button>
       </div>
@@ -281,6 +320,7 @@ export default function Home() {
                 currentDate={currentDate}
                 absences={absences}
                 onMonthChange={handleMonthChange}
+                onDayClick={handleDayClick}
                 maxVisibleBars={3}
               />
             </>
@@ -294,7 +334,11 @@ export default function Home() {
             <h2>New Absence</h2>
             <AbsenceForm
               onSubmit={handleCreateAbsence}
-              onCancel={() => setShowModal(false)}
+              onCancel={() => {
+                setShowModal(false);
+                setInitialAbsenceValues(undefined);
+              }}
+              initialValues={initialAbsenceValues}
               loading={isCreating}
             />
           </div>
