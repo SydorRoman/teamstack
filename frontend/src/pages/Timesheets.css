@@ -1,0 +1,506 @@
+.timesheets-page {
+  max-width: 1400px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.page-header h1 {
+  font-size: 32px;
+  color: #2c3e50;
+}
+
+.timesheets-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.month-selector {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.month-selector h2 {
+  font-size: 24px;
+  color: #2c3e50;
+  margin: 0;
+  min-width: 180px;
+  text-align: center;
+}
+
+.month-nav-button {
+  padding: 8px 16px;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #2c3e50;
+  transition: all 0.2s;
+}
+
+.month-nav-button:hover:not(:disabled) {
+  background-color: #f5f5f5;
+  border-color: #3498db;
+}
+
+.month-nav-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background-color: #ecf0f1;
+  border-radius: 6px;
+}
+
+.summary-label {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.summary-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #3498db;
+}
+
+.timesheets-calendar-container {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background-color: #ddd;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.calendar-day-header {
+  background-color: #34495e;
+  color: white;
+  padding: 12px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.calendar-day-header.weekend-header {
+  opacity: 0.7;
+}
+
+.calendar-day-cell {
+  min-height: 100px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.calendar-day-cell:hover {
+  background-color: #f9f9f9;
+  transform: scale(1.02);
+}
+
+.calendar-day-cell.has-log {
+  background-color: #e8f5e9;
+  border: 2px solid #4caf50;
+}
+
+.calendar-day-cell.has-log.past-due {
+  background-color: #fff3cd;
+  border: 2px solid #ff9800;
+}
+
+.calendar-day-cell.has-absence {
+  position: relative;
+}
+
+.calendar-day-bookings {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+  min-height: 0;
+  margin-top: 4px;
+}
+
+.calendar-day-cell.today {
+  border: 2px solid #3498db;
+}
+
+.calendar-day-cell.weekend {
+  background-color: #f9f9f9;
+}
+
+.calendar-day-cell.other-month {
+  background-color: #f5f5f5;
+  opacity: 0.6;
+  cursor: default;
+}
+
+.calendar-day-cell.other-month:hover {
+  background-color: #f5f5f5;
+  transform: none;
+}
+
+.calendar-day-number {
+  font-weight: 600;
+  font-size: 14px;
+  color: #2c3e50;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+
+.calendar-day-cell.weekend .calendar-day-number {
+  color: #95a5a6;
+}
+
+.calendar-day-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.calendar-day-hours {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.calendar-day-status {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  align-self: flex-start;
+}
+
+.calendar-day-status.status-pending {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.calendar-day-status.status-approved {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.calendar-day-status.status-rejected {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.calendar-day-empty {
+  font-size: 10px;
+  color: #7f8c8d;
+  font-style: italic;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.calendar-day-past-due {
+  font-size: 9px;
+  font-weight: 700;
+  color: #d32f2f;
+  background-color: #ffebee;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-top: 2px;
+  text-align: center;
+}
+
+.calendar-day-projects {
+  font-size: 10px;
+  font-weight: 500;
+  color: #7f8c8d;
+  margin-top: 2px;
+}
+
+.past-due-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background-color: #fff3cd;
+  color: #856404;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.loading,
+.no-data {
+  text-align: center;
+  padding: 40px;
+  color: #7f8c8d;
+}
+
+.no-data {
+  font-style: italic;
+}
+
+.btn-primary {
+  padding: 10px 20px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: #2980b9;
+}
+
+.btn-primary.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.btn-secondary.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.btn-danger {
+  padding: 10px 20px;
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-danger:hover {
+  background-color: #c0392b;
+}
+
+.btn-danger.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 24px;
+  font-size: 24px;
+  color: #2c3e50;
+}
+
+.note-modal {
+  max-width: 600px;
+}
+
+.modal-header-with-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.modal-header-with-action h2 {
+  margin: 0;
+}
+
+.work-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.work-log-list-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #7f8c8d;
+}
+
+.work-log-list-empty p {
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+.work-log-item {
+  padding: 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.work-log-item:hover {
+  background-color: #f0f0f0;
+  border-color: #d0d0d0;
+}
+
+.work-log-item .work-log-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 0;
+}
+
+.work-log-item-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.work-log-details {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.detail-row.note-row {
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: #2c3e50;
+  min-width: 80px;
+  font-size: 14px;
+}
+
+.detail-value {
+  color: #34495e;
+  font-size: 14px;
+}
+
+.detail-note {
+  background-color: #f8f9fa;
+  padding: 12px;
+  border-radius: 6px;
+  color: #2c3e50;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.detail-note.empty-note {
+  color: #7f8c8d;
+  font-style: italic;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.btn-secondary {
+  padding: 10px 20px;
+  background-color: #ecf0f1;
+  color: #2c3e50;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: #d5dbdb;
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-block;
+}
+
+.status-pending {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.status-approved {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-rejected {
+  background-color: #f8d7da;
+  color: #721c24;
+}
