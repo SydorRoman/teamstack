@@ -178,6 +178,24 @@
   font-style: italic;
 }
 
+.technologies-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.technology-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.technology-option input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
 .loading,
 .error {
   text-align: center;

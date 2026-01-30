@@ -18,6 +18,12 @@ interface Employee {
   city: string | null;
   country: string | null;
   projects: Array<{ id: string; name: string }>;
+  technologies: Array<{ id: string; name: string }>;
+}
+
+interface Technology {
+  id: string;
+  name: string;
 }
 
 export default function EmployeeProfile() {
@@ -28,6 +34,9 @@ export default function EmployeeProfile() {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [allTechnologies, setAllTechnologies] = useState<Technology[]>([]);
+  const [selectedTechnologyIds, setSelectedTechnologyIds] = useState<string[]>([]);
+  const [isTechSaving, setIsTechSaving] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -47,6 +56,12 @@ export default function EmployeeProfile() {
   }, [id]);
 
   useEffect(() => {
+    if (id) {
+      fetchAllTechnologies();
+    }
+  }, [id]);
+
+  useEffect(() => {
     if (employee && !isEditing) {
       setFormData({
         firstName: employee.firstName || '',
@@ -59,6 +74,7 @@ export default function EmployeeProfile() {
         city: employee.city || '',
         country: employee.country || '',
       });
+      setSelectedTechnologyIds(employee.technologies.map((tech) => tech.id));
     }
   }, [employee, isEditing]);
 
@@ -70,6 +86,15 @@ export default function EmployeeProfile() {
       console.error('Error fetching employee:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAllTechnologies = async () => {
+    try {
+      const response = await axios.get('/api/user-technologies/all');
+      setAllTechnologies(response.data);
+    } catch (error) {
+      console.error('Error fetching technologies:', error);
     }
   };
 
@@ -100,6 +125,28 @@ export default function EmployeeProfile() {
       alert(error.response?.data?.error || 'Failed to update profile');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const toggleTechnology = (techId: string) => {
+    setSelectedTechnologyIds((prev) =>
+      prev.includes(techId) ? prev.filter((id) => id !== techId) : [...prev, techId]
+    );
+  };
+
+  const handleTechnologiesSave = async () => {
+    if (!id) return;
+    setIsTechSaving(true);
+    try {
+      const response = await axios.put(`/api/user-technologies/${id}`, {
+        technologyIds: selectedTechnologyIds,
+      });
+      setEmployee((prev) => (prev ? { ...prev, technologies: response.data } : prev));
+    } catch (error: any) {
+      console.error('Error updating technologies:', error);
+      alert(error.response?.data?.error || 'Failed to update technologies');
+    } finally {
+      setIsTechSaving(false);
     }
   };
 
@@ -302,6 +349,41 @@ export default function EmployeeProfile() {
                   {project.name}
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        <div className="profile-section">
+          <div className="profile-section-header">
+            <h2>Technologies</h2>
+          </div>
+          {allTechnologies.length === 0 ? (
+            <p className="no-projects">No technologies available</p>
+          ) : (
+            <div className="technologies-list">
+              {allTechnologies.map((tech) => (
+                <label key={tech.id} className="technology-option">
+                  <input
+                    type="checkbox"
+                    checked={selectedTechnologyIds.includes(tech.id)}
+                    onChange={() => toggleTechnology(tech.id)}
+                    disabled={!canEdit}
+                  />
+                  <span>{tech.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+          {canEdit && (
+            <div className="profile-actions">
+              <button
+                type="button"
+                className="profile-save-button"
+                onClick={handleTechnologiesSave}
+                disabled={isTechSaving}
+              >
+                {isTechSaving ? 'Saving...' : 'Save'}
+              </button>
             </div>
           )}
         </div>

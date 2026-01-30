@@ -106,6 +106,16 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
         projects: true,
         entitlements: true,
         position: true,
+        technologies: {
+          include: {
+            technology: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -113,9 +123,12 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Employee not found' });
     }
 
-    const { passwordHash, ...employeeWithoutPassword } = employee;
+    const { passwordHash, technologies, ...employeeWithoutPassword } = employee;
 
-    res.json(employeeWithoutPassword);
+    res.json({
+      ...employeeWithoutPassword,
+      technologies: technologies.map((ut) => ut.technology),
+    });
   } catch (error) {
     console.error('Error fetching employee:', error);
     res.status(500).json({ error: 'Internal server error' });
