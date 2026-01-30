@@ -25,6 +25,19 @@ const updateEmployeeSchema = z.object({
       { message: 'Invalid date format. Use YYYY-MM-DD or ISO datetime' }
     )
     .or(z.literal('')),
+  hireDate: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val || val === '') return true;
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        const datetimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+        return dateRegex.test(val) || datetimeRegex.test(val);
+      },
+      { message: 'Invalid date format. Use YYYY-MM-DD or ISO datetime' }
+    )
+    .or(z.literal('')),
   gender: z.string().optional(),
   city: z.string().optional(),
   country: z.string().optional(),
@@ -147,6 +160,10 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
     const data = updateEmployeeSchema.parse(req.body);
     const updateData: any = { ...data };
 
+    if (!isAdmin && data.hireDate !== undefined) {
+      return res.status(403).json({ error: 'Only admins can update hire date' });
+    }
+
     const nullableFields: Array<keyof typeof data> = [
       'phone',
       'telegram',
@@ -169,6 +186,18 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
           : data.birthDate;
         const [year, month, day] = dateStr.split('-').map(Number);
         updateData.birthDate = new Date(Date.UTC(year, month - 1, day));
+      }
+    }
+
+    if (data.hireDate !== undefined) {
+      if (data.hireDate === '') {
+        updateData.hireDate = null;
+      } else if (data.hireDate) {
+        const dateStr = data.hireDate.includes('T')
+          ? data.hireDate.split('T')[0]
+          : data.hireDate;
+        const [year, month, day] = dateStr.split('-').map(Number);
+        updateData.hireDate = new Date(Date.UTC(year, month - 1, day));
       }
     }
 

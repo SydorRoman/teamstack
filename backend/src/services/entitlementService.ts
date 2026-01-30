@@ -2,7 +2,6 @@ import { PrismaClient } from '@prisma/client';
 import {
   countWorkingDays,
   hasCompletedTrialPeriod,
-  getMonthsSinceHire,
   getCurrentYearStart,
   isWeekend,
 } from '../utils/dateUtils.js';
@@ -16,7 +15,6 @@ const prisma = new PrismaClient();
  * - 10 days can be carried over to next year, rest are eliminated
  * - Only working days counted
  */
-const VACATION_DAYS_PER_YEAR = 18;
 const VACATION_DAYS_PER_MONTH = 1.5;
 const VACATION_CARRYOVER_MAX = 10;
 
@@ -26,7 +24,6 @@ const VACATION_CARRYOVER_MAX = 10;
  * - 0.83 days per month (10/12)
  * - Accrued from beginning of new year
  */
-const SICK_LEAVE_DAYS_PER_YEAR = 10;
 const SICK_LEAVE_DAYS_PER_MONTH = 10 / 12; // ~0.83
 
 interface EntitlementBreakdown {

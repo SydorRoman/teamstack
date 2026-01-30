@@ -45,6 +45,7 @@ export default function Admin() {
     phone: '',
     telegram: '',
     birthDate: '',
+    hireDate: '',
     positionId: '',
     gender: '',
     city: '',
@@ -127,6 +128,7 @@ export default function Admin() {
         phone: '',
         telegram: '',
         birthDate: '',
+        hireDate: '',
         positionId: '',
         gender: '',
         city: '',
@@ -150,6 +152,7 @@ export default function Admin() {
       phone: user.phone || '',
       telegram: user.telegram || '',
       birthDate: user.birthDate ? new Date(user.birthDate).toISOString().split('T')[0] : '',
+      hireDate: user.hireDate ? new Date(user.hireDate).toISOString().split('T')[0] : '',
       positionId: user.positionId || '',
       gender: user.gender || '',
       city: user.city || '',
@@ -177,6 +180,7 @@ export default function Admin() {
         phone: '',
         telegram: '',
         birthDate: '',
+        hireDate: '',
         positionId: '',
         gender: '',
         city: '',
@@ -396,6 +400,16 @@ export default function Admin() {
                   onChange={(e) => setNewUser({ ...newUser, birthDate: e.target.value })}
                 />
               </div>
+              {editingUser && (
+                <div className="form-group">
+                  <label>Hire Date</label>
+                  <input
+                    type="date"
+                    value={newUser.hireDate}
+                    onChange={(e) => setNewUser({ ...newUser, hireDate: e.target.value })}
+                  />
+                </div>
+              )}
               <div className="form-group">
                 <label>Position</label>
                 <div style={{ display: 'flex', gap: '8px' }}>

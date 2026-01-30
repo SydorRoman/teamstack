@@ -13,6 +13,7 @@ interface Employee {
   phone: string | null;
   telegram: string | null;
   birthDate: string | null;
+  hireDate: string | null;
   position: { id: string; name: string } | string | null;
   gender: string | null;
   city: string | null;
@@ -44,6 +45,7 @@ export default function EmployeeProfile() {
     phone: '',
     telegram: '',
     birthDate: '',
+    hireDate: '',
     gender: '',
     city: '',
     country: '',
@@ -70,6 +72,7 @@ export default function EmployeeProfile() {
         phone: employee.phone || '',
         telegram: employee.telegram || '',
         birthDate: employee.birthDate ? format(new Date(employee.birthDate), 'yyyy-MM-dd') : '',
+        hireDate: employee.hireDate ? format(new Date(employee.hireDate), 'yyyy-MM-dd') : '',
         gender: employee.gender || '',
         city: employee.city || '',
         country: employee.country || '',
@@ -108,9 +111,11 @@ export default function EmployeeProfile() {
     if (!id) return;
     setIsSaving(true);
     try {
-      const response = await axios.put(`/api/employees/${id}`, {
-        ...formData,
-      });
+      const payload: typeof formData = { ...formData };
+      if (!user?.isAdmin) {
+        delete (payload as typeof formData & { hireDate?: string }).hireDate;
+      }
+      const response = await axios.put(`/api/employees/${id}`, payload);
       setEmployee(response.data);
       setIsEditing(false);
       if (user?.id === id) {
@@ -268,6 +273,20 @@ export default function EmployeeProfile() {
               ) : (
                 <span>
                   {employee.birthDate ? format(new Date(employee.birthDate), 'MMM dd, yyyy') : '-'}
+                </span>
+              )}
+            </div>
+            <div className="info-item">
+              <label>Hire Date</label>
+              {isEditing && user?.isAdmin ? (
+                <input
+                  type="date"
+                  value={formData.hireDate}
+                  onChange={(e) => handleInputChange('hireDate', e.target.value)}
+                />
+              ) : (
+                <span>
+                  {employee.hireDate ? format(new Date(employee.hireDate), 'MMM dd, yyyy') : '-'}
                 </span>
               )}
             </div>

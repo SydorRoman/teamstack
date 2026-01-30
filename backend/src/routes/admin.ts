@@ -58,6 +58,19 @@ const createUserSchema = z.object({
     .datetime()
     .optional()
     .or(z.literal('').transform(() => undefined)),
+  hireDate: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val || val === '') return true;
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        const datetimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+        return dateRegex.test(val) || datetimeRegex.test(val);
+      },
+      { message: 'Invalid date format. Use YYYY-MM-DD or ISO datetime' }
+    )
+    .or(z.literal('').transform(() => undefined)),
   positionId: z.string().uuid().optional(),
   gender: z.string().optional(),
   city: z.string().optional(),
@@ -172,6 +185,7 @@ router.get('/users', async (req, res) => {
         phone: true,
         telegram: true,
         birthDate: true,
+        hireDate: true,
         positionId: true,
         position: {
           select: {
@@ -223,6 +237,15 @@ router.post('/users', async (req, res) => {
                 : data.birthDate;
               const [year, month, day] = dateStr.split('-').map(Number);
               // Create date in UTC midnight to ensure correct storage
+              return new Date(Date.UTC(year, month - 1, day));
+            })()
+          : null,
+        hireDate: data.hireDate && data.hireDate.trim() !== ''
+          ? (() => {
+              const dateStr = data.hireDate.includes('T')
+                ? data.hireDate.split('T')[0]
+                : data.hireDate;
+              const [year, month, day] = dateStr.split('-').map(Number);
               return new Date(Date.UTC(year, month - 1, day));
             })()
           : null,
@@ -281,6 +304,19 @@ const updateUserSchema = z.object({
       { message: 'Invalid date format. Use YYYY-MM-DD or ISO datetime' }
     )
     .or(z.literal('').transform(() => undefined)),
+  hireDate: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val || val === '') return true;
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        const datetimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+        return dateRegex.test(val) || datetimeRegex.test(val);
+      },
+      { message: 'Invalid date format. Use YYYY-MM-DD or ISO datetime' }
+    )
+    .or(z.literal('').transform(() => undefined)),
   positionId: z.string().uuid().optional(),
   gender: z.string().optional(),
   city: z.string().optional(),
@@ -308,6 +344,16 @@ router.put('/users/:id', async (req, res) => {
       updateData.birthDate = new Date(Date.UTC(year, month - 1, day));
     } else if (data.birthDate === '') {
       updateData.birthDate = null;
+    }
+
+    if (data.hireDate && data.hireDate.trim() !== '') {
+      const dateStr = data.hireDate.includes('T')
+        ? data.hireDate.split('T')[0]
+        : data.hireDate;
+      const [year, month, day] = dateStr.split('-').map(Number);
+      updateData.hireDate = new Date(Date.UTC(year, month - 1, day));
+    } else if (data.hireDate === '') {
+      updateData.hireDate = null;
     }
 
     if (data.positionId !== undefined) {
