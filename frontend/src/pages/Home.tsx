@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { startOfMonth, endOfMonth } from 'date-fns';
 import { AbsenceForm, AbsenceFormData } from './AbsenceForm';
@@ -37,11 +37,9 @@ export default function Home() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [showAll, setShowAll] = useState(false);
-  const [selectedProject, setSelectedProject] = useState('');
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [userSearch, setUserSearch] = useState<string>('');
-  const [showUserDropdown, setShowUserDropdown] = useState(false);
-  const userSearchRef = useRef<HTMLDivElement>(null);
   const [showModal, setShowModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -52,39 +50,19 @@ export default function Home() {
     fetchUsers();
   }, []);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (userSearchRef.current && !userSearchRef.current.contains(event.target as Node)) {
-        setShowUserDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (users.length > 0 || selectedUserId === '') {
+    if (users.length > 0 || selectedUserIds.length === 0) {
       fetchAbsences();
     }
-  }, [showAll, selectedProject, selectedUserId, currentDate, users.length]);
+  }, [showAll, selectedProjectIds, selectedUserIds, currentDate, users.length]);
 
   const fetchAbsences = async () => {
     try {
       setLoading(true);
       const params: any = {};
       if (showAll) params.showAll = 'true';
-      if (selectedProject) params.projectId = selectedProject;
-      if (selectedUserId) {
-        // Use userId for filtering instead of search
-        const user = users.find(u => u.id === selectedUserId);
-        if (user) {
-          params.search = user.id;
-        }
-      }
+      if (selectedProjectIds.length > 0) params.projectIds = selectedProjectIds;
+      if (selectedUserIds.length > 0) params.userIds = selectedUserIds;
 
       const start = startOfMonth(currentDate);
       const end = endOfMonth(currentDate);
@@ -164,12 +142,6 @@ export default function Home() {
     setCurrentDate(date);
   };
 
-  const getSelectedUserName = () => {
-    if (!selectedUserId) return '';
-    const user = users.find(u => u.id === selectedUserId);
-    return user ? `${user.firstName} ${user.lastName}` : '';
-  };
-
   const filteredUsers = userSearch
     ? users.filter(user => {
         const searchLower = userSearch.toLowerCase();
@@ -181,16 +153,31 @@ export default function Home() {
       })
     : users;
 
-  const handleUserSelect = (userId: string) => {
-    setSelectedUserId(userId);
-    const user = users.find(u => u.id === userId);
-    setUserSearch(user ? `${user.firstName} ${user.lastName}` : '');
-    setShowUserDropdown(false);
+  const handleUserToggle = (userId: string) => {
+    setSelectedUserIds((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+    setShowAll(false);
   };
 
-  const handleUserClear = () => {
-    setSelectedUserId('');
-    setUserSearch('');
+  const handleShowAllToggle = (checked: boolean) => {
+    setShowAll(checked);
+    if (checked) {
+      setSelectedUserIds([]);
+      setUserSearch('');
+    }
+  };
+
+  const handleAllProjectsToggle = (checked: boolean) => {
+    if (checked) {
+      setSelectedProjectIds([]);
+    }
+  };
+
+  const handleProjectToggle = (projectId: string) => {
+    setSelectedProjectIds((prev) =>
+      prev.includes(projectId) ? prev.filter((id) => id !== projectId) : [...prev, projectId]
+    );
   };
 
   return (
@@ -202,93 +189,104 @@ export default function Home() {
         </button>
       </div>
 
-      <div className="filters">
-        <label className="toggle">
-          <input
-            type="checkbox"
-            checked={showAll}
-            onChange={(e) => setShowAll(e.target.checked)}
-          />
-          <span>Show all users</span>
-        </label>
-        {projects.length > 0 && (
-          <select
-            value={selectedProject}
-            onChange={(e) => setSelectedProject(e.target.value)}
-            className="filter-select"
-          >
-            <option value="">All Projects</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-        )}
-        <div className="filter-group">
-          <label htmlFor="userFilter">Employee:</label>
-          <div className="searchable-select" ref={userSearchRef}>
-            <div className="search-input-wrapper">
-              <input
-                id="userFilter"
-                type="text"
-                placeholder="Search employee..."
-                value={userSearch || getSelectedUserName() || ''}
-                onChange={(e) => {
-                  setUserSearch(e.target.value);
-                  setShowUserDropdown(true);
-                  if (!e.target.value) {
-                    setSelectedUserId('');
-                  }
-                }}
-                onFocus={() => setShowUserDropdown(true)}
-                className="filter-select search-input"
-              />
-              {selectedUserId && (
-                <button
-                  type="button"
-                  className="clear-button"
-                  onClick={handleUserClear}
-                  title="Clear selection"
-                >
-                  ×
-                </button>
+      <div className="calendar-layout">
+        <aside className="filters-panel">
+          <div className="filter-section">
+            <div className="filter-header">
+              <span className="filter-title">Employees</span>
+              <span className="filter-count">{users.length}</span>
+            </div>
+            <input
+              id="userFilter"
+              type="text"
+              placeholder="Search employee..."
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+              className="filter-search"
+            />
+            <div className="faceted-list">
+              <label className="facet-option">
+                <input
+                  type="checkbox"
+                  checked={showAll}
+                  onChange={(e) => handleShowAllToggle(e.target.checked)}
+                />
+                <span>Show all users</span>
+              </label>
+              {filteredUsers.length === 0 ? (
+                <div className="no-results">No employees found</div>
+              ) : (
+                filteredUsers.map((user) => (
+                  <label key={user.id} className="facet-option">
+                    <input
+                      type="checkbox"
+                      checked={selectedUserIds.includes(user.id)}
+                      onChange={() => handleUserToggle(user.id)}
+                    />
+                    <span>
+                      {user.firstName} {user.lastName}
+                    </span>
+                  </label>
+                ))
               )}
             </div>
-            {showUserDropdown && (
-              <div className="dropdown-list">
-                {filteredUsers.length === 0 ? (
-                  <div className="dropdown-item no-results">No employees found</div>
-                ) : (
-                  filteredUsers.map((user) => (
-                    <div
-                      key={user.id}
-                      className={`dropdown-item ${selectedUserId === user.id ? 'selected' : ''}`}
-                      onClick={() => handleUserSelect(user.id)}
-                    >
-                      {user.firstName} {user.lastName} ({user.email})
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
           </div>
-        </div>
-      </div>
 
-      {loading ? (
-        <div className="loading">Loading...</div>
-      ) : (
-        <>
-          {employees.length > 0 && <CalendarLegend employees={employees} />}
-          <MonthlyCalendar
-            currentDate={currentDate}
-            absences={absences}
-            onMonthChange={handleMonthChange}
-            maxVisibleBars={3}
-          />
-        </>
-      )}
+          {projects.length > 0 && (
+            <div className="filter-section">
+              <div className="filter-header">
+                <span className="filter-title">Projects</span>
+                <span className="filter-count">{projects.length}</span>
+              </div>
+              <div className="faceted-list">
+                <label className="facet-option">
+                  <input
+                    type="checkbox"
+                    checked={selectedProjectIds.length === 0}
+                    onChange={(e) => handleAllProjectsToggle(e.target.checked)}
+                  />
+                  <span>All Projects</span>
+                </label>
+                {projects.map((project) => (
+                  <label key={project.id} className="facet-option">
+                    <input
+                      type="checkbox"
+                      checked={selectedProjectIds.includes(project.id)}
+                      onChange={() => handleProjectToggle(project.id)}
+                    />
+                    <span>{project.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {employees.length > 0 && (
+            <div className="filter-section">
+              <div className="filter-header">
+                <span className="filter-title">Legend</span>
+                <span className="filter-count">{employees.length}</span>
+              </div>
+              <CalendarLegend employees={employees} />
+            </div>
+          )}
+        </aside>
+
+        <section className="calendar-content">
+          {loading ? (
+            <div className="loading">Loading...</div>
+          ) : (
+            <>
+              <MonthlyCalendar
+                currentDate={currentDate}
+                absences={absences}
+                onMonthChange={handleMonthChange}
+                maxVisibleBars={3}
+              />
+            </>
+          )}
+        </section>
+      </div>
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>

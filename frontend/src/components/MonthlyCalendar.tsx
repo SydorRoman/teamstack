@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, startOfWeek, endOfWeek } from 'date-fns';
 import { BookingBar } from './BookingBar';
 import { DayBookingsModal } from './DayBookingsModal';
@@ -32,6 +32,16 @@ export function MonthlyCalendar({
   maxVisibleBars = 3,
 }: MonthlyCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [pickerMonth, setPickerMonth] = useState(currentDate.getMonth());
+  const [pickerYear, setPickerYear] = useState(currentDate.getFullYear());
+
+  useEffect(() => {
+    if (!isPickerOpen) {
+      setPickerMonth(currentDate.getMonth());
+      setPickerYear(currentDate.getFullYear());
+    }
+  }, [currentDate, isPickerOpen]);
 
   // Get all bookings for a specific date
   const getBookingsForDate = (date: Date): Absence[] => {
@@ -69,6 +79,12 @@ export function MonthlyCalendar({
     onMonthChange(newDate);
   };
 
+  const monthOptions = Array.from({ length: 12 }, (_, index) =>
+    format(new Date(2020, index, 1), 'MMMM')
+  );
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 11 }, (_, index) => currentYear - 5 + index);
+
   return (
     <>
       <div className="monthly-calendar-container">
@@ -76,7 +92,75 @@ export function MonthlyCalendar({
           <button onClick={goToPreviousMonth} className="calendar-nav-button">
             ← Prev
           </button>
-          <h2 className="calendar-month-title">{format(currentDate, 'MMMM yyyy')}</h2>
+          <div className="calendar-month-picker">
+            <button
+              type="button"
+              className="calendar-month-button"
+              onClick={() => {
+                setPickerMonth(currentDate.getMonth());
+                setPickerYear(currentDate.getFullYear());
+                setIsPickerOpen(true);
+              }}
+              aria-haspopup="dialog"
+              aria-expanded={isPickerOpen}
+            >
+              {format(currentDate, 'MMMM yyyy')}
+            </button>
+            {isPickerOpen && (
+              <>
+                <div
+                  className="calendar-month-overlay"
+                  onClick={() => setIsPickerOpen(false)}
+                  aria-hidden="true"
+                />
+                <div className="calendar-month-popover" role="dialog" aria-label="Pick month and year">
+                  <div className="calendar-month-selectors">
+                    <select
+                      value={pickerMonth}
+                      onChange={(e) => setPickerMonth(Number(e.target.value))}
+                      className="calendar-month-select"
+                    >
+                      {monthOptions.map((label, index) => (
+                        <option key={label} value={index}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={pickerYear}
+                      onChange={(e) => setPickerYear(Number(e.target.value))}
+                      className="calendar-month-select"
+                    >
+                      {yearOptions.map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="calendar-month-actions">
+                    <button
+                      type="button"
+                      className="calendar-month-cancel"
+                      onClick={() => setIsPickerOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="calendar-month-apply"
+                      onClick={() => {
+                        onMonthChange(new Date(pickerYear, pickerMonth, 1));
+                        setIsPickerOpen(false);
+                      }}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
           <button onClick={goToNextMonth} className="calendar-nav-button">
             Next →
           </button>

@@ -85,80 +85,106 @@ export default function Employees() {
 
   return (
     <div className="employees-page">
-      <h1>Employees</h1>
-
-      <div className="filters">
-        <input
-          type="text"
-          placeholder="Search by name or email..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="search-input"
-        />
-        <select
-          value={positionFilter}
-          onChange={(e) => setPositionFilter(e.target.value)}
-          className="filter-select"
-        >
-          <option value="">All Positions</option>
-          {positions.map((pos) => (
-            <option key={pos} value={pos}>
-              {pos}
-            </option>
-          ))}
-        </select>
-        <select
-          value={genderFilter}
-          onChange={(e) => setGenderFilter(e.target.value)}
-          className="filter-select"
-        >
-          <option value="">All Genders</option>
-          <option value="Male">Male</option>
-          <option value="Female">Female</option>
-          <option value="Other">Other</option>
-        </select>
+      <div className="page-header">
+        <h1>Employees</h1>
       </div>
 
-      <div className="table-container">
-        <table className="employees-table">
-          <thead>
-            <tr>
-              <th>Photo</th>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Position</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredEmployees.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="no-data">
-                  No employees found
-                </td>
-              </tr>
-            ) : (
-              filteredEmployees.map((employee) => (
-                <tr
-                  key={employee.id}
-                  onClick={() => navigate(`/employees/${employee.id}`)}
-                  className="table-row-clickable"
-                >
-                  <td>
-                    <div className="avatar">
-                      {employee.firstName[0]}
-                      {employee.lastName[0]}
-                    </div>
-                  </td>
-                  <td>
-                    {employee.firstName} {employee.lastName}
-                  </td>
-                  <td>{employee.email}</td>
-                  <td>{employee.position?.name || '-'}</td>
+      <div className="employees-layout">
+        <aside className="filters-panel">
+          <div className="filter-section">
+            <div className="filter-header">
+              <span className="filter-title">Search</span>
+              <span className="filter-count">{employees.length}</span>
+            </div>
+            <input
+              type="text"
+              placeholder="Search by name or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
+          </div>
+
+          <div className="filter-section">
+            <div className="filter-header">
+              <span className="filter-title">Position</span>
+              <span className="filter-count">{positions.length}</span>
+            </div>
+            <select
+              value={positionFilter}
+              onChange={(e) => setPositionFilter(e.target.value)}
+              className="filter-select"
+            >
+              <option value="">All Positions</option>
+              {positions.map((pos) => (
+                <option key={pos} value={pos}>
+                  {pos}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-section">
+            <div className="filter-header">
+              <span className="filter-title">Gender</span>
+              <span className="filter-count">3</span>
+            </div>
+            <select
+              value={genderFilter}
+              onChange={(e) => setGenderFilter(e.target.value)}
+              className="filter-select"
+            >
+              <option value="">All Genders</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </aside>
+
+        <section className="employees-content">
+          <div className="table-container">
+            <table className="employees-table">
+              <thead>
+                <tr>
+                  <th>Photo</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Position</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {filteredEmployees.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="no-data">
+                      No employees found
+                    </td>
+                  </tr>
+                ) : (
+                  filteredEmployees.map((employee) => (
+                    <tr
+                      key={employee.id}
+                      onClick={() => navigate(`/employees/${employee.id}`)}
+                      className="table-row-clickable"
+                    >
+                      <td>
+                        <div className="avatar">
+                          {employee.firstName[0]}
+                          {employee.lastName[0]}
+                        </div>
+                      </td>
+                      <td>
+                        {employee.firstName} {employee.lastName}
+                      </td>
+                      <td>{employee.email}</td>
+                      <td>{employee.position?.name || '-'}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </div>
   );

@@ -30,65 +30,6 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
   }
 });
 
-// Get users by technology
-router.get('/search-users', authenticateToken, async (req: AuthRequest, res) => {
-  try {
-    const { technologyIds } = req.query;
-
-    if (!technologyIds || !Array.isArray(technologyIds) || technologyIds.length === 0) {
-      return res.status(400).json({ error: 'At least one technology ID is required' });
-    }
-
-    const users = await prisma.user.findMany({
-      where: {
-        technologies: {
-          some: {
-            technologyId: {
-              in: technologyIds as string[],
-            },
-          },
-        },
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        position: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        technologies: {
-          include: {
-            technology: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    const formattedUsers = users.map((user) => ({
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      position: user.position,
-      technologies: user.technologies.map((ut: any) => ut.technology),
-    }));
-
-    res.json(formattedUsers);
-  } catch (error) {
-    console.error('Error searching users by technology:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
 // Create technology (admin only)
 router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) => {
   try {

@@ -17,6 +17,11 @@ export default function Layout() {
   };
 
   const isActive = (path: string) => location.pathname === path;
+  const isMyProfileActive = user?.id
+    ? location.pathname === `/employees/${user.id}`
+    : false;
+  const adminLinkClass = (active: boolean) =>
+    `admin-only${active ? ' active' : ''}`;
 
   useEffect(() => {
     if (user?.isAdmin) {
@@ -59,7 +64,19 @@ export default function Layout() {
             </Link>
           </li>
           <li>
-            <Link to="/employees" className={location.pathname.startsWith('/employees') ? 'active' : ''}>
+            {user?.id ? (
+              <Link
+                to={`/employees/${user.id}`}
+                className={isMyProfileActive ? 'active' : ''}
+              >
+                My Profile
+              </Link>
+            ) : (
+              <span className="nav-link disabled">My Profile</span>
+            )}
+          </li>
+          <li>
+            <Link to="/employees" className={isActive('/employees') ? 'active' : ''}>
               Employees
             </Link>
           </li>
@@ -80,8 +97,11 @@ export default function Layout() {
           </li>
           {user?.isAdmin && (
             <>
+              <li className="nav-separator" aria-hidden="true">
+                <hr className="nav-separator-line" />
+              </li>
               <li>
-                <Link to="/admin" className={isActive('/admin') ? 'active' : ''}>
+                <Link to="/admin" className={adminLinkClass(isActive('/admin'))}>
                   Admin
                   {pendingCount > 0 && (
                     <span className="notification-badge">{pendingCount}</span>
@@ -89,18 +109,13 @@ export default function Layout() {
                 </Link>
               </li>
               <li>
-                <Link to="/reports" className={isActive('/reports') ? 'active' : ''}>
+                <Link to="/reports" className={adminLinkClass(isActive('/reports'))}>
                   Reports
                 </Link>
               </li>
               <li>
-                <Link to="/projects" className={isActive('/projects') ? 'active' : ''}>
+                <Link to="/projects" className={adminLinkClass(isActive('/projects'))}>
                   Projects
-                </Link>
-              </li>
-              <li>
-                <Link to="/technology-search" className={isActive('/technology-search') ? 'active' : ''}>
-                  Search People
                 </Link>
               </li>
             </>

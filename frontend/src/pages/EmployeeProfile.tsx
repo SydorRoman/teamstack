@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
+import { useAuth } from '../contexts/AuthContext';
 import './EmployeeProfile.css';
 
 interface Employee {
@@ -12,7 +13,7 @@ interface Employee {
   phone: string | null;
   telegram: string | null;
   birthDate: string | null;
-  position: string | null;
+  position: { id: string; name: string } | string | null;
   gender: string | null;
   city: string | null;
   country: string | null;
@@ -22,14 +23,44 @@ interface Employee {
 export default function EmployeeProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user, updateUser } = useAuth();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    telegram: '',
+    birthDate: '',
+    gender: '',
+    city: '',
+    country: '',
+  });
 
   useEffect(() => {
     if (id) {
       fetchEmployee();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (employee && !isEditing) {
+      setFormData({
+        firstName: employee.firstName || '',
+        lastName: employee.lastName || '',
+        email: employee.email || '',
+        phone: employee.phone || '',
+        telegram: employee.telegram || '',
+        birthDate: employee.birthDate ? format(new Date(employee.birthDate), 'yyyy-MM-dd') : '',
+        gender: employee.gender || '',
+        city: employee.city || '',
+        country: employee.country || '',
+      });
+    }
+  }, [employee, isEditing]);
 
   const fetchEmployee = async () => {
     try {
@@ -40,6 +71,42 @@ export default function EmployeeProfile() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const canEdit = Boolean(user?.isAdmin || (user?.id && user.id === id));
+
+  const handleInputChange = (field: keyof typeof formData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    if (!id) return;
+    setIsSaving(true);
+    try {
+      const response = await axios.put(`/api/employees/${id}`, {
+        ...formData,
+      });
+      setEmployee(response.data);
+      setIsEditing(false);
+      if (user?.id === id) {
+        updateUser({
+          firstName: response.data.firstName,
+          lastName: response.data.lastName,
+          email: response.data.email,
+        });
+      }
+    } catch (error: any) {
+      console.error('Error updating employee:', error);
+      alert(error.response?.data?.error || 'Failed to update profile');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const getPositionName = () => {
+    if (!employee?.position) return '-';
+    if (typeof employee.position === 'string') return employee.position;
+    return employee.position.name || '-';
   };
 
   if (loading) {
@@ -70,51 +137,158 @@ export default function EmployeeProfile() {
 
       <div className="profile-content">
         <div className="profile-section">
-          <h2>Personal Information</h2>
+          <div className="profile-section-header">
+            <h2>Personal Information</h2>
+            {canEdit && !isEditing && (
+              <button
+                type="button"
+                className="profile-edit-button"
+                onClick={() => setIsEditing(true)}
+              >
+                Edit
+              </button>
+            )}
+          </div>
           <div className="info-grid">
             <div className="info-item">
               <label>First Name</label>
-              <span>{employee.firstName}</span>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={formData.firstName}
+                  onChange={(e) => handleInputChange('firstName', e.target.value)}
+                />
+              ) : (
+                <span>{employee.firstName}</span>
+              )}
             </div>
             <div className="info-item">
               <label>Last Name</label>
-              <span>{employee.lastName}</span>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={formData.lastName}
+                  onChange={(e) => handleInputChange('lastName', e.target.value)}
+                />
+              ) : (
+                <span>{employee.lastName}</span>
+              )}
             </div>
             <div className="info-item">
               <label>Email</label>
-              <span>{employee.email}</span>
+              {isEditing ? (
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                />
+              ) : (
+                <span>{employee.email}</span>
+              )}
             </div>
             <div className="info-item">
               <label>Phone</label>
-              <span>{employee.phone || '-'}</span>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={formData.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                />
+              ) : (
+                <span>{employee.phone || '-'}</span>
+              )}
             </div>
             <div className="info-item">
               <label>Telegram</label>
-              <span>{employee.telegram || '-'}</span>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={formData.telegram}
+                  onChange={(e) => handleInputChange('telegram', e.target.value)}
+                />
+              ) : (
+                <span>{employee.telegram || '-'}</span>
+              )}
             </div>
             <div className="info-item">
               <label>Date of Birth</label>
-              <span>
-                {employee.birthDate ? format(new Date(employee.birthDate), 'MMM dd, yyyy') : '-'}
-              </span>
+              {isEditing ? (
+                <input
+                  type="date"
+                  value={formData.birthDate}
+                  onChange={(e) => handleInputChange('birthDate', e.target.value)}
+                />
+              ) : (
+                <span>
+                  {employee.birthDate ? format(new Date(employee.birthDate), 'MMM dd, yyyy') : '-'}
+                </span>
+              )}
             </div>
             <div className="info-item">
               <label>Position</label>
-              <span>{employee.position || '-'}</span>
+              <span>{getPositionName()}</span>
             </div>
             <div className="info-item">
               <label>Gender</label>
-              <span>{employee.gender || '-'}</span>
+              {isEditing ? (
+                <select
+                  value={formData.gender}
+                  onChange={(e) => handleInputChange('gender', e.target.value)}
+                >
+                  <option value="">Not set</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              ) : (
+                <span>{employee.gender || '-'}</span>
+              )}
             </div>
             <div className="info-item">
               <label>City</label>
-              <span>{employee.city || '-'}</span>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={formData.city}
+                  onChange={(e) => handleInputChange('city', e.target.value)}
+                />
+              ) : (
+                <span>{employee.city || '-'}</span>
+              )}
             </div>
             <div className="info-item">
               <label>Country</label>
-              <span>{employee.country || '-'}</span>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={formData.country}
+                  onChange={(e) => handleInputChange('country', e.target.value)}
+                />
+              ) : (
+                <span>{employee.country || '-'}</span>
+              )}
             </div>
           </div>
+          {isEditing && (
+            <div className="profile-actions">
+              <button
+                type="button"
+                className="profile-cancel-button"
+                onClick={() => setIsEditing(false)}
+                disabled={isSaving}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="profile-save-button"
+                onClick={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="profile-section">

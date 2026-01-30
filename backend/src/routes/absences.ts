@@ -42,32 +42,50 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { userId, isAdmin } = req;
     const { showAll, projectId, search, startDate, endDate } = req.query;
+    const projectIdsRaw = req.query.projectIds ?? projectId;
+    const userIdsRaw = req.query.userIds ?? search;
+    const projectIds = Array.isArray(projectIdsRaw)
+      ? (projectIdsRaw as string[])
+      : typeof projectIdsRaw === 'string'
+      ? [projectIdsRaw]
+      : [];
+    const userIds = Array.isArray(userIdsRaw)
+      ? (userIdsRaw as string[])
+      : typeof userIdsRaw === 'string'
+      ? [userIdsRaw]
+      : [];
 
     let where: any = {};
 
     // If not showing all, show only current user's absences
-    if (showAll !== 'true' && !search) {
+    if (showAll !== 'true' && userIds.length === 0 && !search) {
       where.userId = userId;
     }
 
     // Build user filter conditions
     const userConditions: any[] = [];
 
-    if (projectId) {
+    if (projectIds.length > 0) {
       userConditions.push({
         projects: {
           some: {
-            id: projectId as string,
+            id: {
+              in: projectIds,
+            },
           },
         },
       });
     }
 
-    if (search) {
+    if (userIds.length > 0) {
       userConditions.push({
-        OR: [
-          { id: { equals: search as string } },
-        ],
+        id: {
+          in: userIds,
+        },
+      });
+    } else if (search) {
+      userConditions.push({
+        OR: [{ id: { equals: search as string } }],
       });
     }
 

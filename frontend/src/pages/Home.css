@@ -14,12 +14,76 @@
   color: #2c3e50;
 }
 
-.filters {
+.calendar-layout {
   display: flex;
-  gap: 15px;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.filters-panel {
+  width: 280px;
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 10px;
+  padding: 16px;
+  height: fit-content;
+  position: sticky;
+  top: 20px;
+}
+
+.calendar-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.filters-panel,
+.filters-panel label,
+.filters-panel input,
+.filters-panel select,
+.filters-panel span,
+.filters-panel div {
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+}
+
+.filter-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.filter-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.filter-title {
+  color: #2c3e50;
+}
+
+.filter-header {
+  display: flex;
   align-items: center;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.filter-count {
+  color: #7f8c8d;
+  font-weight: 600;
+}
+
+.filter-search {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  height: 40px;
 }
 
 .toggle {
@@ -27,6 +91,7 @@
   align-items: center;
   gap: 8px;
   cursor: pointer;
+  height: 40px;
 }
 
 .toggle input[type="checkbox"] {
@@ -51,28 +116,12 @@
   border: 1px solid #ddd;
   border-radius: 6px;
   font-size: 14px;
-}
-
-.search-input {
-  flex: 1;
-  min-width: 200px;
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.filter-group label {
-  font-weight: 600;
-  color: #2c3e50;
-  font-size: 14px;
+  height: 40px;
 }
 
 .searchable-select {
   position: relative;
-  min-width: 200px;
+  width: 100%;
 }
 
 .search-input-wrapper {
@@ -120,6 +169,46 @@
   overflow-y: auto;
   z-index: 1000;
   margin-top: 4px;
+}
+
+.faceted-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.facet-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.facet-option input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+.no-results {
+  color: #999;
+  font-style: italic;
+  padding: 4px 0;
+}
+
+.filters-panel .calendar-legend {
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  margin: 0;
+}
+
+.filters-panel .calendar-legend-title {
+  display: none;
+}
+
+.filters-panel .calendar-legend-items {
+  flex-direction: column;
+  gap: 10px;
 }
 
 .dropdown-item {

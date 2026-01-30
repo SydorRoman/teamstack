@@ -10,7 +10,6 @@ import Timesheets from './pages/Timesheets';
 import Reports from './pages/Reports';
 import Projects from './pages/Projects';
 import Technologies from './pages/Technologies';
-import TechnologySearch from './pages/TechnologySearch';
 import Layout from './components/Layout';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -65,14 +64,6 @@ function App() {
             <Route path="entitlement" element={<Entitlement />} />
             <Route path="timesheets" element={<Timesheets />} />
             <Route path="technologies" element={<Technologies />} />
-            <Route
-              path="technology-search"
-              element={
-                <AdminRoute>
-                  <TechnologySearch />
-                </AdminRoute>
-              }
-            />
             <Route
               path="admin"
               element={
