@@ -230,6 +230,15 @@
   grid-column: 1 / -1;
 }
 
+.form-group.admin-checkbox {
+  grid-column: 1 / -1;
+}
+
+.form-group.admin-checkbox .checkbox-pill {
+  width: 100%;
+  justify-content: flex-start;
+}
+
 .form-group label {
   font-weight: 500;
   color: #2c3e50;
@@ -241,6 +250,32 @@
   align-items: center;
   gap: 12px;
   cursor: pointer;
+}
+
+.checkbox-pill {
+  padding: 10px 12px;
+  border: 1px solid #cfe2ff;
+  border-radius: 10px;
+  background: #eef5ff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.checkbox-pill input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #3498db;
+}
+
+.checkbox-pill span {
+  font-size: 14px;
+  color: #1f3b5b;
+  font-weight: 600;
+}
+
+.checkbox-pill:focus-within {
+  border-color: #2d7cf2;
+  box-shadow: 0 0 0 3px rgba(45, 124, 242, 0.25);
+  background: #ffffff;
 }
 
 .form-group input,
