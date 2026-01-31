@@ -37,7 +37,8 @@ export default function EmployeeProfile() {
   const [isSaving, setIsSaving] = useState(false);
   const [allTechnologies, setAllTechnologies] = useState<Technology[]>([]);
   const [selectedTechnologyIds, setSelectedTechnologyIds] = useState<string[]>([]);
-  const [isTechSaving, setIsTechSaving] = useState(false);
+  const [isTechnologiesModalOpen, setIsTechnologiesModalOpen] = useState(false);
+  const [technologySearch, setTechnologySearch] = useState('');
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -140,27 +141,44 @@ export default function EmployeeProfile() {
     }
   };
 
-  const toggleTechnology = (techId: string) => {
-    setSelectedTechnologyIds((prev) =>
-      prev.includes(techId) ? prev.filter((id) => id !== techId) : [...prev, techId]
-    );
-  };
-
-  const handleTechnologiesSave = async () => {
+  const saveTechnologies = async (technologyIds: string[]) => {
     if (!id) return;
-    setIsTechSaving(true);
     try {
       const response = await axios.put(`/api/user-technologies/${id}`, {
-        technologyIds: selectedTechnologyIds,
+        technologyIds,
       });
       setEmployee((prev) => (prev ? { ...prev, technologies: response.data } : prev));
     } catch (error: any) {
       console.error('Error updating technologies:', error);
       alert(error.response?.data?.error || 'Failed to update technologies');
-    } finally {
-      setIsTechSaving(false);
     }
   };
+
+  const toggleTechnology = (techId: string) => {
+    if (!canEdit) return;
+    setSelectedTechnologyIds((prev) => {
+      const next = prev.includes(techId) ? prev.filter((id) => id !== techId) : [...prev, techId];
+      void saveTechnologies(next);
+      return next;
+    });
+  };
+
+  const handleTechnologyAdd = (techId: string) => {
+    if (!canEdit || selectedTechnologyIds.includes(techId)) return;
+    setSelectedTechnologyIds((prev) => {
+      const next = [...prev, techId];
+      void saveTechnologies(next);
+      return next;
+    });
+  };
+
+  const selectedTechnologies = allTechnologies.filter((tech) =>
+    selectedTechnologyIds.includes(tech.id)
+  );
+
+  const filteredTechnologies = allTechnologies.filter((tech) =>
+    tech.name.toLowerCase().includes(technologySearch.trim().toLowerCase())
+  );
 
   const handlePasswordSave = async () => {
     if (!id) return;
@@ -401,31 +419,84 @@ export default function EmployeeProfile() {
           {allTechnologies.length === 0 ? (
             <p className="no-projects">No technologies available</p>
           ) : (
-            <div className="technologies-list">
-              {allTechnologies.map((tech) => (
-                <label key={tech.id} className="technology-option">
-                  <input
-                    type="checkbox"
-                    checked={selectedTechnologyIds.includes(tech.id)}
-                    onChange={() => toggleTechnology(tech.id)}
-                    disabled={!canEdit}
-                  />
-                  <span>{tech.name}</span>
-                </label>
-              ))}
-            </div>
-          )}
-          {canEdit && (
-            <div className="profile-actions">
-              <button
-                type="button"
-                className="profile-save-button"
-                onClick={handleTechnologiesSave}
-                disabled={isTechSaving}
-              >
-                {isTechSaving ? 'Saving...' : 'Save'}
-              </button>
-            </div>
+            <>
+              <div className="technology-actions">
+                <button
+                  type="button"
+                  className="profile-save-button"
+                  onClick={() => setIsTechnologiesModalOpen(true)}
+                  disabled={!canEdit}
+                >
+                  Add technologies
+                </button>
+              </div>
+              {selectedTechnologies.length === 0 ? (
+                <p className="no-projects">No technologies selected</p>
+              ) : (
+                <div className="technologies-list">
+                  {selectedTechnologies.map((tech) => (
+                    <label key={tech.id} className="technology-option">
+                      <input
+                        type="checkbox"
+                        checked={selectedTechnologyIds.includes(tech.id)}
+                        onChange={() => toggleTechnology(tech.id)}
+                        disabled={!canEdit}
+                      />
+                      <span>{tech.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              {isTechnologiesModalOpen && (
+                <div className="technology-modal-backdrop">
+                  <div className="technology-modal">
+                    <div className="technology-modal-header">
+                      <h3>Technologies</h3>
+                      <button
+                        type="button"
+                        className="technology-modal-close"
+                        onClick={() => {
+                          setIsTechnologiesModalOpen(false);
+                          setTechnologySearch('');
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="technology-modal-search">
+                      <input
+                        type="text"
+                        value={technologySearch}
+                        onChange={(e) => setTechnologySearch(e.target.value)}
+                        placeholder="Search technologies..."
+                        autoFocus
+                      />
+                    </div>
+                    <div className="technology-modal-list">
+                      {filteredTechnologies.length === 0 ? (
+                        <p className="no-projects">No technologies found</p>
+                      ) : (
+                        filteredTechnologies.map((tech) => {
+                          const isSelected = selectedTechnologyIds.includes(tech.id);
+                          return (
+                            <button
+                              type="button"
+                              key={tech.id}
+                              className={`technology-modal-item${isSelected ? ' selected' : ''}`}
+                              onClick={() => handleTechnologyAdd(tech.id)}
+                              disabled={isSelected || !canEdit}
+                            >
+                              <span>{tech.name}</span>
+                              {isSelected && <span className="technology-modal-tag">Added</span>}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -484,6 +555,7 @@ export default function EmployeeProfile() {
 
         <div className="profile-section">
           <h2>Projects</h2>
+          <div className="info-grid"></div>
           {employee.projects.length === 0 ? (
             <p className="no-projects">No projects assigned</p>
           ) : (
