@@ -30,9 +30,9 @@ router.post('/login', async (req, res) => {
 
     const isValid = await bcrypt.compare(password, user.passwordHash);
 
-    // if (!isValid) {
-    //   return res.status(401).json({ error: 'Invalid credentials' });
-    // }
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
     const token = jwt.sign(
       { userId: user.id, isAdmin: user.isAdmin },

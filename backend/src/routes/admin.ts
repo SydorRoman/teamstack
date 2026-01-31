@@ -437,6 +437,7 @@ const updateUserSchema = z.object({
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
   email: z.string().email().optional(),
+  password: z.string().min(6).optional(),
   phone: z.string().optional(),
   telegram: z.string().optional(),
   birthDate: z
@@ -478,7 +479,7 @@ router.put('/users/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const data = updateUserSchema.parse(req.body);
-    const { projectIds, ...userData } = data;
+    const { projectIds, password, ...userData } = data;
 
     const updateData: any = { ...userData };
 
@@ -513,6 +514,10 @@ router.put('/users/:id', async (req, res) => {
       updateData.projects = {
         set: projectIds.map((projectId) => ({ id: projectId })),
       };
+    }
+
+    if (password) {
+      updateData.passwordHash = await bcrypt.hash(password, 10);
     }
 
     const user = await prisma.user.update({

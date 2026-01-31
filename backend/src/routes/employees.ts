@@ -1,4 +1,5 @@
 import express from 'express';
+import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { authenticateToken, AuthRequest } from '../middleware/auth.js';
@@ -41,6 +42,11 @@ const updateEmployeeSchema = z.object({
   gender: z.string().optional(),
   city: z.string().optional(),
   country: z.string().optional(),
+});
+
+const updatePasswordSchema = z.object({
+  currentPassword: z.string().min(1).optional(),
+  newPassword: z.string().min(6),
 });
 
 router.get('/', authenticateToken, async (req: AuthRequest, res) => {
@@ -218,6 +224,57 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
       return res.status(400).json({ error: error.errors });
     }
     console.error('Error updating employee:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.put('/:id/password', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { userId, isAdmin } = req;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    if (!isAdmin && userId !== id) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const data = updatePasswordSchema.parse(req.body);
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { passwordHash: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    if (!isAdmin) {
+      if (!data.currentPassword) {
+        return res.status(400).json({ error: 'Current password is required' });
+      }
+      const isValid = await bcrypt.compare(data.currentPassword, user.passwordHash);
+      if (!isValid) {
+        return res.status(400).json({ error: 'Current password is incorrect' });
+      }
+    }
+
+    const passwordHash = await bcrypt.hash(data.newPassword, 10);
+
+    await prisma.user.update({
+      where: { id },
+      data: { passwordHash },
+    });
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
+    console.error('Error updating password:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

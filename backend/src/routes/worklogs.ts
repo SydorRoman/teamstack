@@ -1,6 +1,7 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth.js';
+import { addWorkingDays } from '../utils/dateUtils.js';
 import { countWorkingDays } from '../utils/dateUtils.js';
 import { z } from 'zod';
 
@@ -128,6 +129,15 @@ const updateWorkLogSchema = z.object({
   note: z.string().optional(),
 });
 
+function calculateIsPastDue(logDate: Date, now: Date = new Date()): boolean {
+  const normalizedLogDate = new Date(logDate);
+  normalizedLogDate.setHours(0, 0, 0, 0);
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const pastDueDate = addWorkingDays(normalizedLogDate, 5);
+  return today > pastDueDate;
+}
+
 // Create work log
 router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   try {
@@ -135,10 +145,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
     const data = createWorkLogSchema.parse(req.body);
 
     const logDate = new Date(data.date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    logDate.setHours(0, 0, 0, 0);
-    const isPastDue = logDate < today;
+    const isPastDue = calculateIsPastDue(logDate);
 
     const workLog = await prisma.workLog.create({
       data: {
@@ -168,7 +175,10 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       },
     });
 
-    res.status(201).json(workLog);
+    res.status(201).json({
+      ...workLog,
+      isPastDue: calculateIsPastDue(workLog.date),
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       const errorMessages = error.errors.map((err) => {
@@ -219,8 +229,12 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res) => {
         date: 'desc',
       },
     });
+    const workLogsWithPastDue = workLogs.map((log) => ({
+      ...log,
+      isPastDue: calculateIsPastDue(log.date),
+    }));
 
-    res.json(workLogs);
+    res.json(workLogsWithPastDue);
   } catch (error) {
     console.error('Error fetching work logs:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -275,8 +289,12 @@ router.get('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) =
         date: 'desc',
       },
     });
+    const workLogsWithPastDue = workLogs.map((log) => ({
+      ...log,
+      isPastDue: calculateIsPastDue(log.date),
+    }));
 
-    res.json(workLogs);
+    res.json(workLogsWithPastDue);
   } catch (error) {
     console.error('Error fetching work logs:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -331,6 +349,10 @@ router.get('/report', authenticateToken, requireAdmin, async (req: AuthRequest, 
         date: 'desc',
       },
     });
+    const workLogsWithPastDue = workLogs.map((log) => ({
+      ...log,
+      isPastDue: calculateIsPastDue(log.date),
+    }));
 
     const [reportYear, reportMonth] = (month as string).split('-').map(Number);
     const monthStart = new Date(reportYear, reportMonth - 1, 1);
@@ -353,7 +375,7 @@ router.get('/report', authenticateToken, requireAdmin, async (req: AuthRequest, 
       }
     > = {};
 
-    workLogs.forEach((log: WorkLogWithRelations) => {
+    workLogsWithPastDue.forEach((log: WorkLogWithRelations) => {
       if (!log.user) return; // Skip if user data is missing
       
       const start = new Date(log.start);
@@ -526,7 +548,7 @@ router.get('/report', authenticateToken, requireAdmin, async (req: AuthRequest, 
     });
 
     res.json({
-      workLogs,
+      workLogs: workLogsWithPastDue,
       summary: Object.values(summary),
       absences: absencesForReport,
     });
@@ -570,12 +592,8 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
 
     const updateData: any = {};
     if (data.date) {
-      const logDate = new Date(data.date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      logDate.setHours(0, 0, 0, 0);
       updateData.date = new Date(data.date);
-      updateData.isPastDue = logDate < today;
+      updateData.isPastDue = calculateIsPastDue(updateData.date);
     }
     if (data.start) updateData.start = new Date(data.start);
     if (data.end) updateData.end = new Date(data.end);

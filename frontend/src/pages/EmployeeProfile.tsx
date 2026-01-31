@@ -38,6 +38,12 @@ export default function EmployeeProfile() {
   const [allTechnologies, setAllTechnologies] = useState<Technology[]>([]);
   const [selectedTechnologyIds, setSelectedTechnologyIds] = useState<string[]>([]);
   const [isTechSaving, setIsTechSaving] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [isPasswordSaving, setIsPasswordSaving] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -102,6 +108,7 @@ export default function EmployeeProfile() {
   };
 
   const canEdit = Boolean(user?.isAdmin || (user?.id && user.id === id));
+  const isSelf = Boolean(user?.id && user.id === id);
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -152,6 +159,36 @@ export default function EmployeeProfile() {
       alert(error.response?.data?.error || 'Failed to update technologies');
     } finally {
       setIsTechSaving(false);
+    }
+  };
+
+  const handlePasswordSave = async () => {
+    if (!id) return;
+    if (passwordData.newPassword.length < 6) {
+      alert('New password must be at least 6 characters long');
+      return;
+    }
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      alert('New password and confirmation do not match');
+      return;
+    }
+    setIsPasswordSaving(true);
+    try {
+      await axios.put(`/api/employees/${id}/password`, {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+      alert('Password updated successfully');
+    } catch (error: any) {
+      console.error('Error updating password:', error);
+      alert(error.response?.data?.error || 'Failed to update password');
+    } finally {
+      setIsPasswordSaving(false);
     }
   };
 
@@ -391,6 +428,59 @@ export default function EmployeeProfile() {
             </div>
           )}
         </div>
+
+        {isSelf && (
+          <div className="profile-section">
+            <div className="profile-section-header">
+              <h2>Security</h2>
+            </div>
+            <div className="info-grid">
+              <div className="info-item">
+                <label>Current Password</label>
+                <input
+                  type="password"
+                  value={passwordData.currentPassword}
+                  onChange={(e) =>
+                    setPasswordData((prev) => ({ ...prev, currentPassword: e.target.value }))
+                  }
+                  autoComplete="current-password"
+                />
+              </div>
+              <div className="info-item">
+                <label>New Password</label>
+                <input
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e) =>
+                    setPasswordData((prev) => ({ ...prev, newPassword: e.target.value }))
+                  }
+                  autoComplete="new-password"
+                />
+              </div>
+              <div className="info-item">
+                <label>Confirm New Password</label>
+                <input
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) =>
+                    setPasswordData((prev) => ({ ...prev, confirmPassword: e.target.value }))
+                  }
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+            <div className="profile-actions">
+              <button
+                type="button"
+                className="profile-save-button"
+                onClick={handlePasswordSave}
+                disabled={isPasswordSaving}
+              >
+                {isPasswordSaving ? 'Updating...' : 'Update Password'}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="profile-section">
           <h2>Projects</h2>
