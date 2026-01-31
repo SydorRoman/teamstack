@@ -94,6 +94,71 @@
   height: 40px;
 }
 
+.faceted-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.facet-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  min-height: 32px;
+}
+
+.facet-option input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+}
+
+.no-results {
+  color: #999;
+  font-style: italic;
+  padding: 4px 0;
+}
+
+.tech-filter-list {
+  max-height: 216px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.selected-tech {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.selected-tech-label {
+  color: #7f8c8d;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.selected-tech-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.selected-tech-tag {
+  background: #e3f2fd;
+  color: #2c3e50;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.selected-tech-tag:hover {
+  background: #d6ebff;
+}
+
 .table-container {
   background: white;
   border-radius: 8px;
