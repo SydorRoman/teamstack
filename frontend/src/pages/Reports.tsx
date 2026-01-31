@@ -31,6 +31,8 @@ interface SummaryItem {
   totalHours: number;
   totalDays: number;
   overtime: number;
+  sickLeaveHours: number;
+  vacationHours: number;
 }
 
 interface Project {
@@ -357,8 +359,11 @@ export default function Reports() {
                     <tr>
                       <th>Employee</th>
                       <th>Total Hours</th>
+                      <th>Sick Leave Hours</th>
+                      <th>Vacation Hours</th>
                       <th>Total Days</th>
                       <th>Overtime</th>
+                      <th>Total Hours (Incl. Leave)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -368,8 +373,11 @@ export default function Reports() {
                           {item.firstName} {item.lastName}
                         </td>
                         <td>{item.totalHours.toFixed(2)}</td>
+                        <td>{item.sickLeaveHours.toFixed(2)}</td>
+                        <td>{item.vacationHours.toFixed(2)}</td>
                         <td>{item.totalDays}</td>
                         <td>{item.overtime.toFixed(2)}</td>
+                        <td>{(item.totalHours + item.sickLeaveHours + item.vacationHours).toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>

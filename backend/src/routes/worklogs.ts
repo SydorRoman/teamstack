@@ -1,6 +1,7 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth.js';
+import { countWorkingDays } from '../utils/dateUtils.js';
 import { z } from 'zod';
 
 const router = express.Router();
@@ -24,6 +25,50 @@ interface WorkLogWithRelations {
     id: string;
     name: string;
   } | null;
+}
+
+interface SettingsData {
+  vacationCarryoverLimit: number;
+  sickLeaveWithoutCertificateLimit: number;
+  sickLeaveWithCertificateLimit: number;
+}
+
+const SETTINGS_ID = 'global';
+
+async function getSettings(): Promise<SettingsData> {
+  const settings = await (prisma as any).settings.findUnique({
+    where: { id: SETTINGS_ID },
+  });
+
+  if (settings) {
+    return settings as SettingsData;
+  }
+
+  return (prisma as any).settings.create({
+    data: {
+      id: SETTINGS_ID,
+      vacationFutureAccrueDays: 1.5,
+      vacationCarryoverLimit: 0,
+      sickLeaveWithoutCertificateLimit: 5,
+      sickLeaveWithCertificateLimit: 5,
+    },
+  }) as SettingsData;
+}
+
+function countWorkingDaysWithinRange(
+  from: Date,
+  to: Date,
+  rangeStart: Date,
+  rangeEnd: Date
+): number {
+  const start = new Date(Math.max(from.getTime(), rangeStart.getTime()));
+  const end = new Date(Math.min(to.getTime(), rangeEnd.getTime()));
+
+  if (end < start) {
+    return 0;
+  }
+
+  return countWorkingDays(start, end);
 }
 
 const createWorkLogSchema = z
@@ -282,6 +327,8 @@ router.get('/report', authenticateToken, requireAdmin, async (req: AuthRequest, 
         totalHours: number;
         totalDays: number;
         overtime: number;
+      sickLeaveHours: number;
+      vacationHours: number;
       }
     > = {};
 
@@ -302,6 +349,8 @@ router.get('/report', authenticateToken, requireAdmin, async (req: AuthRequest, 
           totalHours: 0,
           totalDays: 0,
           overtime: 0,
+        sickLeaveHours: 0,
+        vacationHours: 0,
         };
       }
 
@@ -313,6 +362,95 @@ router.get('/report', authenticateToken, requireAdmin, async (req: AuthRequest, 
       const overtime = Math.max(0, totalHours - regularHours);
       summary[log.userId].overtime += overtime;
     });
+
+  const userIds = Object.keys(summary);
+  if (userIds.length > 0) {
+    const settings = await getSettings();
+    const sickLeaveLimit =
+      settings.sickLeaveWithoutCertificateLimit + settings.sickLeaveWithCertificateLimit;
+    const vacationLimit = 18 + settings.vacationCarryoverLimit;
+
+    const reportYear = month
+      ? Number((month as string).split('-')[0])
+      : new Date().getFullYear();
+    const monthStart = month
+      ? new Date(reportYear, Number((month as string).split('-')[1]) - 1, 1)
+      : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const monthEnd = month
+      ? new Date(reportYear, Number((month as string).split('-')[1]), 0, 23, 59, 59, 999)
+      : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const yearStart = new Date(reportYear, 0, 1);
+    const yearEnd = new Date(reportYear, 11, 31, 23, 59, 59, 999);
+    const beforeMonthEnd = new Date(monthStart);
+    beforeMonthEnd.setDate(beforeMonthEnd.getDate() - 1);
+    beforeMonthEnd.setHours(23, 59, 59, 999);
+
+    const absences = await prisma.absence.findMany({
+      where: {
+        userId: { in: userIds },
+        status: 'approved',
+        type: {
+          in: ['sick_leave', 'vacation'],
+        },
+        from: {
+          lte: yearEnd,
+        },
+        to: {
+          gte: yearStart,
+        },
+      },
+      select: {
+        userId: true,
+        type: true,
+        from: true,
+        to: true,
+      },
+    });
+
+    const usedBefore: Record<string, { sick_leave: number; vacation: number }> = {};
+    const usedInMonth: Record<string, { sick_leave: number; vacation: number }> = {};
+
+    for (const absence of absences) {
+      if (!usedBefore[absence.userId]) {
+        usedBefore[absence.userId] = { sick_leave: 0, vacation: 0 };
+        usedInMonth[absence.userId] = { sick_leave: 0, vacation: 0 };
+      }
+
+      const daysBefore =
+        beforeMonthEnd >= yearStart
+          ? countWorkingDaysWithinRange(
+              new Date(absence.from),
+              new Date(absence.to),
+              yearStart,
+              beforeMonthEnd
+            )
+          : 0;
+      const daysInMonth = countWorkingDaysWithinRange(
+        new Date(absence.from),
+        new Date(absence.to),
+        monthStart,
+        monthEnd
+      );
+
+      usedBefore[absence.userId][absence.type] += daysBefore;
+      usedInMonth[absence.userId][absence.type] += daysInMonth;
+    }
+
+    for (const userIdKey of userIds) {
+      const before = usedBefore[userIdKey] || { sick_leave: 0, vacation: 0 };
+      const inMonth = usedInMonth[userIdKey] || { sick_leave: 0, vacation: 0 };
+
+      const sickLeaveRemaining = Math.max(0, sickLeaveLimit - before.sick_leave);
+      const vacationRemaining = Math.max(0, vacationLimit - before.vacation);
+
+      const sickLeaveCountedDays = Math.min(inMonth.sick_leave, sickLeaveRemaining);
+      const vacationCountedDays = Math.min(inMonth.vacation, vacationRemaining);
+
+      summary[userIdKey].sickLeaveHours = sickLeaveCountedDays * 8;
+      summary[userIdKey].vacationHours = vacationCountedDays * 8;
+    }
+  }
 
     res.json({
       workLogs,
