@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, startOfWeek, endOfWeek, isSameDay, addDays } from 'date-fns';
 import { WorkLogForm, WorkLogFormData } from '../components/WorkLogForm';
 import { AbsenceForm, AbsenceFormData } from './AbsenceForm';
 import { BookingBar } from '../components/BookingBar';
@@ -51,6 +51,13 @@ export default function Timesheets() {
   const [isSaving, setIsSaving] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [loading, setLoading] = useState(true);
+  const [showWeekModal, setShowWeekModal] = useState(false);
+  const [weekStartDate, setWeekStartDate] = useState(format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'));
+  const [weekHoursPerDay, setWeekHoursPerDay] = useState(8);
+  const [weekProjectId, setWeekProjectId] = useState('');
+  const [weekNote, setWeekNote] = useState('');
+  const [weekSelectedDays, setWeekSelectedDays] = useState<boolean[]>([true, true, true, true, true, false, false]);
+  const [weekProjectError, setWeekProjectError] = useState('');
 
   useEffect(() => {
     fetchWorkLogs();
@@ -112,6 +119,67 @@ export default function Timesheets() {
     } catch (error: any) {
       console.error('Error saving work log:', error);
       alert(error.response?.data?.error || 'Failed to save work log');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const getWeekDates = (dateStr: string) => {
+    const weekStart = startOfWeek(new Date(dateStr + 'T00:00:00'), { weekStartsOn: 1 });
+    return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+  };
+
+  const openWeekModal = () => {
+    setWeekStartDate(format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'));
+    setWeekHoursPerDay(8);
+    setWeekProjectId('');
+    setWeekNote('');
+    setWeekSelectedDays([true, true, true, true, true, false, false]);
+    setWeekProjectError('');
+    setShowWeekModal(true);
+  };
+
+  const handleWeekSubmit = async () => {
+    if (!weekProjectId) {
+      setWeekProjectError('Project is required');
+      return;
+    }
+    if (!weekSelectedDays.some(Boolean)) {
+      alert('Please select at least one day.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const weekDates = getWeekDates(weekStartDate);
+      const startHour = 9;
+      const endHour = startHour + weekHoursPerDay;
+
+      const requests = weekDates
+        .map((date, index) => ({ date, index }))
+        .filter(({ index }) => weekSelectedDays[index])
+        .map(({ date }) => {
+          const dateStr = format(date, 'yyyy-MM-dd');
+          const start = new Date(dateStr + `T${String(startHour).padStart(2, '0')}:00:00`);
+          const end = new Date(dateStr + `T${String(endHour).padStart(2, '0')}:00:00`);
+
+          const payload: WorkLogFormData = {
+            date: new Date(dateStr + 'T00:00:00').toISOString(),
+            start: start.toISOString(),
+            end: end.toISOString(),
+            projectId: weekProjectId,
+            note: weekNote || undefined,
+          };
+
+          return axios.post('/api/worklogs', payload);
+        });
+
+      await Promise.all(requests);
+      setShowWeekModal(false);
+      fetchWorkLogs();
+    } catch (error: any) {
+      console.error('Error saving week work logs:', error);
+      alert(error.response?.data?.error || 'Failed to save week work logs');
     } finally {
       setIsSaving(false);
     }
@@ -246,13 +314,18 @@ export default function Timesheets() {
     <div className="timesheets-page">
       <div className="page-header">
         <h1>Timesheets</h1>
-        <button className="btn-primary" onClick={() => {
-          setEditingLog(null);
-          setSelectedDate(null);
-          setShowModal(true);
-        }}>
-          Log Work Time
-        </button>
+        <div className="page-header-actions">
+          <button className="btn-secondary" onClick={openWeekModal}>
+            Log Week
+          </button>
+          <button className="btn-primary" onClick={() => {
+            setEditingLog(null);
+            setSelectedDate(null);
+            setShowModal(true);
+          }}>
+            Log Work Time
+          </button>
+        </div>
       </div>
 
       <div className="timesheets-controls">
@@ -487,6 +560,129 @@ export default function Timesheets() {
               submitLabel="Upload Files"
               submittingLabel="Uploading..."
             />
+          </div>
+        </div>
+      )}
+
+      {showWeekModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Log Work Week</h2>
+            <div className="week-log-form">
+              <div className="week-form-row">
+                <div className="form-group">
+                  <label htmlFor="weekStart">Week start (Mon)</label>
+                  <input
+                    type="date"
+                    id="weekStart"
+                    value={weekStartDate}
+                    onChange={(event) => {
+                      const normalized = startOfWeek(new Date(event.target.value + 'T00:00:00'), { weekStartsOn: 1 });
+                      setWeekStartDate(format(normalized, 'yyyy-MM-dd'));
+                    }}
+                  />
+                  <div className="week-range">
+                    {(() => {
+                      const weekDates = getWeekDates(weekStartDate);
+                      const startLabel = format(weekDates[0], 'MMM dd');
+                      const endLabel = format(weekDates[6], 'MMM dd');
+                      return `${startLabel} - ${endLabel}`;
+                    })()}
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="weekHours">Hours per day</label>
+                  <select
+                    id="weekHours"
+                    value={weekHoursPerDay}
+                    onChange={(event) => setWeekHoursPerDay(Number(event.target.value))}
+                  >
+                    {Array.from({ length: 24 }, (_, i) => i + 1).map((hour) => (
+                      <option key={hour} value={hour}>
+                        {hour} {hour === 1 ? 'hour' : 'hours'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="weekProject">Project *</label>
+                <select
+                  id="weekProject"
+                  value={weekProjectId}
+                  onChange={(event) => {
+                    setWeekProjectId(event.target.value);
+                    setWeekProjectError('');
+                  }}
+                  className={weekProjectError ? 'error' : ''}
+                >
+                  <option value="">Select a project</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+                {weekProjectError && (
+                  <span className="form-error">{weekProjectError}</span>
+                )}
+                <span className={`form-error form-error-empty ${weekProjectError ? '' : 'form-error-empty'}`}>
+                  {weekProjectError || '\u00A0'}
+                </span>
+              </div>
+
+              <div className="form-group">
+                <label>Days to include</label>
+                <div className="week-days-grid">
+                  {getWeekDates(weekStartDate).map((date, index) => {
+                    const label = format(date, 'EEE dd');
+                    return (
+                      <label key={date.toISOString()} className="week-day-chip">
+                        <input
+                          type="checkbox"
+                          checked={weekSelectedDays[index]}
+                          onChange={(event) => {
+                            const next = [...weekSelectedDays];
+                            next[index] = event.target.checked;
+                            setWeekSelectedDays(next);
+                          }}
+                        />
+                        <span>{label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="weekNote">Note</label>
+                <textarea
+                  id="weekNote"
+                  rows={3}
+                  value={weekNote}
+                  onChange={(event) => setWeekNote(event.target.value)}
+                  placeholder="Optional notes for this week..."
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  onClick={() => setShowWeekModal(false)}
+                  className="btn-secondary"
+                  disabled={isSaving}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleWeekSubmit}
+                  className="btn-primary"
+                  disabled={isSaving}
+                >
+                  {isSaving ? 'Saving...' : 'Save Week'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

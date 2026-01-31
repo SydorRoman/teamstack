@@ -7,11 +7,20 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 30px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .page-header h1 {
   font-size: 32px;
   color: #2c3e50;
+}
+
+.page-header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .timesheets-controls {
@@ -342,6 +351,51 @@
   margin-bottom: 24px;
   font-size: 24px;
   color: #2c3e50;
+}
+
+.week-log-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.week-form-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.week-form-row .form-group {
+  flex: 1;
+  min-width: 220px;
+}
+
+.week-range {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #7f8c8d;
+}
+
+.week-days-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.week-day-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+  font-size: 13px;
+  color: #2c3e50;
+}
+
+.week-day-chip input {
+  accent-color: #3498db;
 }
 
 .note-modal {
