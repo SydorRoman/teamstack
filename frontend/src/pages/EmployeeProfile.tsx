@@ -554,8 +554,9 @@ export default function EmployeeProfile() {
         )}
 
         <div className="profile-section">
-          <h2>Projects</h2>
-          <div className="info-grid"></div>
+          <div className="profile-section-header">
+            <h2>Projects</h2>
+          </div>
           {employee.projects.length === 0 ? (
             <p className="no-projects">No projects assigned</p>
           ) : (
