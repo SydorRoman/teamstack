@@ -1,5 +1,6 @@
 .timesheets-page {
   max-width: 1400px;
+  padding: 0 16px;
 }
 
 .page-header {
@@ -503,4 +504,258 @@
 .status-rejected {
   background-color: #f8d7da;
   color: #721c24;
+}
+
+.desktop-only {
+  display: block;
+}
+
+.timesheets-mobile {
+  display: none;
+}
+
+.mobile-days-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mobile-day-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: pointer;
+  text-align: left;
+  border: none;
+}
+
+.mobile-day-card:focus-visible {
+  outline: 2px solid rgba(52, 152, 219, 0.4);
+  outline-offset: 2px;
+}
+
+.mobile-day-card.today {
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.3), 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+
+.mobile-day-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mobile-day-date {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.mobile-day-hours {
+  font-size: 16px;
+  font-weight: 700;
+  color: #3498db;
+}
+
+.mobile-day-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #ecf0f1;
+  color: #2c3e50;
+  border: none;
+}
+
+.badge-logged {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.badge-past-due {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.badge-meta {
+  background: #eef2f6;
+  color: #34495e;
+}
+
+.badge-empty {
+  background: #f1f3f5;
+  color: #7f8c8d;
+}
+
+.badge-absence {
+  background: #e3f2fd;
+  color: #1e88e5;
+  cursor: pointer;
+  border: none;
+}
+
+.badge-vacation {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.badge-sick_leave {
+  background: #fff3e0;
+  color: #ef6c00;
+}
+
+.badge-day_off {
+  background: #ede7f6;
+  color: #5e35b1;
+}
+
+.badge-absence:focus-visible {
+  outline: 2px solid rgba(30, 136, 229, 0.4);
+  outline-offset: 2px;
+}
+
+.mobile-log-button {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .timesheets-page {
+    padding: 0 12px;
+    padding-bottom: 96px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .page-header h1 {
+    font-size: 24px;
+  }
+
+  .timesheets-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .month-selector {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .month-selector h2 {
+    font-size: 18px;
+    min-width: auto;
+  }
+
+  .summary {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .timesheets-calendar-container {
+    padding: 12px;
+    overflow-x: auto;
+  }
+
+  .calendar-grid {
+    min-width: 560px;
+  }
+
+  .calendar-day-header {
+    padding: 8px;
+    font-size: 12px;
+  }
+
+  .calendar-day-cell {
+    min-height: 80px;
+    padding: 6px;
+  }
+
+  .calendar-day-number {
+    font-size: 12px;
+  }
+
+  .calendar-day-hours {
+    font-size: 11px;
+  }
+
+  .calendar-day-status {
+    font-size: 9px;
+  }
+
+  .desktop-only {
+    display: none;
+  }
+
+  .timesheets-mobile {
+    display: block;
+  }
+
+  .mobile-log-button {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: #f5f5f5;
+    box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.08);
+    z-index: 20;
+  }
+
+  .mobile-log-button .btn-primary {
+    width: 100%;
+    font-size: 16px;
+    padding: 12px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-header h1 {
+    font-size: 22px;
+  }
+
+  .month-nav-button,
+  .btn-primary {
+    width: 100%;
+  }
+
+  .month-selector {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .summary {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .calendar-grid {
+    min-width: 520px;
+  }
+
+  .mobile-day-card {
+    padding: 12px 14px;
+  }
+
+  .badge {
+    font-size: 11px;
+  }
 }

@@ -3,6 +3,10 @@
   min-height: 100vh;
 }
 
+.mobile-header {
+  display: none;
+}
+
 .sidebar {
   width: 250px;
   background-color: #2c3e50;
@@ -139,4 +143,90 @@
   padding: 30px;
   background-color: #f5f5f5;
   min-height: 100vh;
+}
+
+@media (max-width: 768px) {
+  .layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background-color: #2c3e50;
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+
+  .mobile-header .logo-container {
+    color: white;
+  }
+
+  .mobile-menu-button {
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 20px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .mobile-menu-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 40;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .mobile-menu {
+    width: min(85vw, 320px);
+    height: 100%;
+    background: #2c3e50;
+    color: white;
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+  }
+
+  .mobile-menu-header {
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .mobile-menu .nav-menu {
+    flex: 1;
+  }
+
+  .mobile-menu .nav-menu a,
+  .mobile-menu .nav-menu .nav-link {
+    padding: 12px 14px;
+  }
+
+  .mobile-menu .logout-btn {
+    margin-top: auto;
+  }
+
+  .content {
+    margin-left: 0;
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mobile-menu {
+    width: min(90vw, 320px);
+  }
 }

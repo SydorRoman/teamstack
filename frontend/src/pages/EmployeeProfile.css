@@ -1,5 +1,6 @@
 .employee-profile {
   max-width: 900px;
+  padding: 0 16px;
 }
 
 .back-button {
@@ -303,4 +304,112 @@
 
 .error {
   color: #e74c3c;
+}
+
+@media (max-width: 768px) {
+  .employee-profile {
+    padding: 0 12px;
+  }
+
+  .back-button {
+    width: 100%;
+  }
+
+  .profile-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+  }
+
+  .profile-avatar {
+    width: 72px;
+    height: 72px;
+    font-size: 26px;
+  }
+
+  .profile-name h1 {
+    font-size: 24px;
+  }
+
+  .profile-email {
+    font-size: 14px;
+  }
+
+  .profile-section {
+    padding: 20px;
+  }
+
+  .profile-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .profile-edit-button {
+    width: 100%;
+    text-align: center;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .profile-cancel-button,
+  .profile-save-button {
+    width: 100%;
+  }
+
+  .technology-actions .profile-save-button {
+    width: 100%;
+  }
+
+  .projects-list,
+  .technologies-list {
+    gap: 10px;
+  }
+
+  .project-tag {
+    width: 100%;
+    text-align: center;
+  }
+
+  .technology-modal {
+    width: 100%;
+    max-height: calc(100vh - 40px);
+  }
+
+  .technology-modal-header,
+  .technology-modal-search,
+  .technology-modal-list {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-section {
+    padding: 16px;
+  }
+
+  .profile-section h2 {
+    font-size: 20px;
+  }
+
+  .info-item input,
+  .info-item select,
+  .technology-modal-search input {
+    font-size: 16px;
+  }
+
+  .technology-modal-item {
+    padding: 12px;
+    font-size: 14px;
+  }
 }

@@ -35,6 +35,19 @@ interface Absence {
   files?: { id: string; originalName: string }[];
 }
 
+function getAbsenceLabel(type: Absence['type']) {
+  switch (type) {
+    case 'vacation':
+      return 'Vacation';
+    case 'sick_leave':
+      return 'Sick Leave';
+    case 'day_off':
+      return 'Day Off';
+    default:
+      return 'Absence';
+  }
+}
+
 export default function Timesheets() {
   const { user } = useAuth();
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
@@ -241,16 +254,23 @@ export default function Timesheets() {
   };
 
   const totalHours = workLogs.reduce((sum, log) => sum + calculateHours(log), 0);
+  const monthDays = eachDayOfInterval({
+    start: startOfMonth(currentMonth),
+    end: endOfMonth(currentMonth),
+  });
 
   return (
     <div className="timesheets-page">
       <div className="page-header">
         <h1>Timesheets</h1>
-        <button className="btn-primary" onClick={() => {
-          setEditingLog(null);
-          setSelectedDate(null);
-          setShowModal(true);
-        }}>
+        <button
+          className="btn-primary desktop-only"
+          onClick={() => {
+            setEditingLog(null);
+            setSelectedDate(null);
+            setShowModal(true);
+          }}
+        >
           Log Work Time
         </button>
       </div>
@@ -278,77 +298,148 @@ export default function Timesheets() {
       {loading ? (
         <div className="loading">Loading...</div>
       ) : (
-        <div className="timesheets-calendar-container">
-          <div className="calendar-grid">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
-              <div key={day} className={`calendar-day-header ${index === 0 || index === 6 ? 'weekend-header' : ''}`}>
-                {day}
-              </div>
-            ))}
-            
-            {(() => {
-              const monthStart = startOfMonth(currentMonth);
-              const monthEnd = endOfMonth(currentMonth);
-              const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-              const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
-              const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+        <>
+          <div className="timesheets-calendar-container desktop-only">
+            <div className="calendar-grid">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+                <div key={day} className={`calendar-day-header ${index === 0 || index === 6 ? 'weekend-header' : ''}`}>
+                  {day}
+                </div>
+              ))}
 
-              return calendarDays.map((date) => {
+              {(() => {
+                const monthStart = startOfMonth(currentMonth);
+                const monthEnd = endOfMonth(currentMonth);
+                const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+                const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+                const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+
+                return calendarDays.map((date) => {
+                  const logs = getWorkLogsForDate(date);
+                  const dayAbsences = getAbsencesForDate(date);
+                  const isCurrentMonth = isSameMonth(date, currentMonth);
+                  const dayOfWeek = date.getDay();
+                  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                  const totalHours = logs.reduce((sum, log) => sum + calculateHours(log), 0);
+                  const isToday = isSameDay(date, new Date());
+                  const hasPastDue = logs.some(log => log.isPastDue);
+
+                  return (
+                    <div
+                      key={date.toISOString()}
+                      className={`calendar-day-cell ${isWeekend ? 'weekend' : ''} ${!isCurrentMonth ? 'other-month' : ''} ${logs.length > 0 ? 'has-log' : ''} ${dayAbsences.length > 0 ? 'has-absence' : ''} ${isToday ? 'today' : ''} ${hasPastDue ? 'past-due' : ''}`}
+                      onClick={() => handleDayClick(date)}
+                    >
+                      <div className="calendar-day-number">{format(date, 'd')}</div>
+                      {logs.length > 0 && (
+                        <div className="calendar-day-content">
+                          <div className="calendar-day-hours">{totalHours.toFixed(1)}h</div>
+                          {logs.length > 1 && (
+                            <div className="calendar-day-projects">{logs.length} projects</div>
+                          )}
+                          {hasPastDue && (
+                            <div className="calendar-day-past-due">Past Due</div>
+                          )}
+                        </div>
+                      )}
+                      {dayAbsences.length > 0 && (
+                        <div className="calendar-day-bookings">
+                          {dayAbsences.map((absence: Absence) => (
+                            <BookingBar
+                              key={absence.id}
+                              firstName={user?.firstName || ''}
+                              lastName={user?.lastName || ''}
+                              userId={user?.id || ''}
+                              type={absence.type}
+                              compact={true}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleAbsenceClick(absence);
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {logs.length === 0 && !dayAbsences.length && isCurrentMonth && (
+                        <div className="calendar-day-empty">Click to log</div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+          <div className="timesheets-mobile">
+            <div className="mobile-days-list">
+              {monthDays.map((date) => {
                 const logs = getWorkLogsForDate(date);
                 const dayAbsences = getAbsencesForDate(date);
-                const isCurrentMonth = isSameMonth(date, currentMonth);
-                const dayOfWeek = date.getDay();
-                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-                const totalHours = logs.reduce((sum, log) => sum + calculateHours(log), 0);
+                const totalDayHours = logs.reduce((sum, log) => sum + calculateHours(log), 0);
+                const hasPastDue = logs.some((log) => log.isPastDue);
                 const isToday = isSameDay(date, new Date());
-                const hasPastDue = logs.some(log => log.isPastDue);
+                const hasLogs = logs.length > 0;
 
                 return (
                   <div
                     key={date.toISOString()}
-                    className={`calendar-day-cell ${isWeekend ? 'weekend' : ''} ${!isCurrentMonth ? 'other-month' : ''} ${logs.length > 0 ? 'has-log' : ''} ${dayAbsences.length > 0 ? 'has-absence' : ''} ${isToday ? 'today' : ''} ${hasPastDue ? 'past-due' : ''}`}
+                    className={`mobile-day-card${isToday ? ' today' : ''}`}
                     onClick={() => handleDayClick(date)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handleDayClick(date);
+                      }
+                    }}
                   >
-                    <div className="calendar-day-number">{format(date, 'd')}</div>
-                    {logs.length > 0 && (
-                      <div className="calendar-day-content">
-                        <div className="calendar-day-hours">{totalHours.toFixed(1)}h</div>
-                        {logs.length > 1 && (
-                          <div className="calendar-day-projects">{logs.length} projects</div>
-                        )}
-                        {hasPastDue && (
-                          <div className="calendar-day-past-due">Past Due</div>
-                        )}
+                    <div className="mobile-day-top">
+                      <div className="mobile-day-date">{format(date, 'EEE, MMM d')}</div>
+                      <div className="mobile-day-hours">
+                        {hasLogs ? `${totalDayHours.toFixed(1)}h` : '0h'}
                       </div>
-                    )}
-                    {dayAbsences.length > 0 && (
-                      <div className="calendar-day-bookings">
-                        {dayAbsences.map((absence: Absence) => (
-                          <BookingBar
-                            key={absence.id}
-                            firstName={user?.firstName || ''}
-                            lastName={user?.lastName || ''}
-                            userId={user?.id || ''}
-                            type={absence.type}
-                            compact={true}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleAbsenceClick(absence);
-                            }}
-                          />
-                        ))}
-                      </div>
-                    )}
-                    {logs.length === 0 && !dayAbsences.length && isCurrentMonth && (
-                      <div className="calendar-day-empty">Click to log</div>
-                    )}
+                    </div>
+                    <div className="mobile-day-status">
+                      {hasLogs && <span className="badge badge-logged">Logged</span>}
+                      {hasPastDue && <span className="badge badge-past-due">Past Due</span>}
+                      {logs.length > 1 && <span className="badge badge-meta">{logs.length} logs</span>}
+                      {dayAbsences.map((absence) => (
+                        <button
+                          key={absence.id}
+                          type="button"
+                          className={`badge badge-absence badge-${absence.type}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleAbsenceClick(absence);
+                          }}
+                        >
+                          {getAbsenceLabel(absence.type)}
+                        </button>
+                      ))}
+                      {!hasLogs && dayAbsences.length === 0 && (
+                        <span className="badge badge-empty">Tap to log</span>
+                      )}
+                    </div>
                   </div>
                 );
-              });
-            })()}
+              })}
+            </div>
           </div>
-        </div>
+        </>
       )}
+
+      <div className="mobile-log-button">
+        <button
+          className="btn-primary"
+          onClick={() => {
+            setEditingLog(null);
+            setSelectedDate(null);
+            setShowModal(true);
+          }}
+        >
+          Log Work Time
+        </button>
+      </div>
 
       {showNoteModal && selectedDate && (
         <div className="modal-overlay" onClick={() => {
