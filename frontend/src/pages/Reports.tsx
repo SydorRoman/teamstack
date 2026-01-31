@@ -68,6 +68,8 @@ export default function Reports() {
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
   const [absences, setAbsences] = useState<AbsenceItem[]>([]);
   const [summary, setSummary] = useState<SummaryItem[]>([]);
+  const [selectedWorkLog, setSelectedWorkLog] = useState<WorkLog | null>(null);
+  const [showNoteModal, setShowNoteModal] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -529,7 +531,14 @@ export default function Reports() {
                         if (row.kind === 'worklog') {
                           const hours = calculateHours(row.log);
                           return (
-                            <tr key={row.key}>
+                            <tr
+                              key={row.key}
+                              className="worklog-row clickable-row"
+                              onClick={() => {
+                                setSelectedWorkLog(row.log);
+                                setShowNoteModal(true);
+                              }}
+                            >
                               <td>
                                 {format(new Date(row.log.date), 'MMM dd, yyyy')}
                                 {row.log.isPastDue && (
@@ -578,6 +587,58 @@ export default function Reports() {
             )}
           </div>
         </>
+      )}
+      {showNoteModal && selectedWorkLog && (
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setShowNoteModal(false);
+            setSelectedWorkLog(null);
+          }}
+        >
+          <div className="modal-content note-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Work Log Note</h2>
+            <div className="work-log-note-details">
+              <div className="detail-row">
+                <span className="detail-label">Date:</span>
+                <span className="detail-value">
+                  {format(new Date(selectedWorkLog.date), 'MMM dd, yyyy')}
+                </span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Employee:</span>
+                <span className="detail-value">
+                  {selectedWorkLog.user.firstName} {selectedWorkLog.user.lastName}
+                </span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Hours:</span>
+                <span className="detail-value">{calculateHours(selectedWorkLog).toFixed(2)}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Project:</span>
+                <span className="detail-value">{selectedWorkLog.project?.name || '-'}</span>
+              </div>
+              <div className="detail-row note-row">
+                <span className="detail-label">Note:</span>
+                <div className="detail-note">
+                  {selectedWorkLog.note?.trim() || 'No note provided.'}
+                </div>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  setShowNoteModal(false);
+                  setSelectedWorkLog(null);
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
