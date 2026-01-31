@@ -12,6 +12,11 @@ interface Employee {
   gender: string | null;
 }
 
+interface Technology {
+  id: string;
+  name: string;
+}
+
 export default function Employees() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
@@ -19,28 +24,29 @@ export default function Employees() {
   const [positionFilter, setPositionFilter] = useState('');
   const [genderFilter, setGenderFilter] = useState('');
   const [positions, setPositions] = useState<string[]>([]);
+  const [allTechnologies, setAllTechnologies] = useState<Technology[]>([]);
+  const [selectedTechnologyIds, setSelectedTechnologyIds] = useState<string[]>([]);
+  const [technologySearch, setTechnologySearch] = useState('');
   const navigate = useNavigate();
-
-  useEffect(() => {
-    fetchEmployees();
-  }, []);
 
   useEffect(() => {
     filterEmployees();
   }, [employees, searchQuery, positionFilter, genderFilter]);
 
+  useEffect(() => {
+    fetchEmployees();
+  }, [selectedTechnologyIds]);
+
+  useEffect(() => {
+    fetchTechnologies();
+  }, []);
+
   const fetchEmployees = async () => {
     try {
       const params: any = {};
-      if (searchQuery) params.search = searchQuery;
-      if (positionFilter) {
-        // Find positionId from position name
-        const employee = employees.find((e) => e.position?.name === positionFilter);
-        if (employee?.position?.id) {
-          params.positionId = employee.position.id;
-        }
+      if (selectedTechnologyIds.length > 0) {
+        params.technologyIds = selectedTechnologyIds;
       }
-      if (genderFilter) params.gender = genderFilter;
 
       const response = await axios.get('/api/employees', { params });
       setEmployees(response.data);
@@ -63,13 +69,24 @@ export default function Employees() {
     let filtered = [...employees];
 
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (emp) =>
-          emp.firstName.toLowerCase().includes(query) ||
-          emp.lastName.toLowerCase().includes(query) ||
-          emp.email.toLowerCase().includes(query)
-      );
+      const terms = searchQuery
+        .toLowerCase()
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+      if (terms.length > 0) {
+        filtered = filtered.filter((emp) => {
+          const firstName = emp.firstName.toLowerCase();
+          const lastName = emp.lastName.toLowerCase();
+          const email = emp.email.toLowerCase();
+          return terms.every(
+            (term) =>
+              firstName.includes(term) ||
+              lastName.includes(term) ||
+              email.includes(term)
+          );
+        });
+      }
     }
 
     if (positionFilter) {
@@ -82,6 +99,29 @@ export default function Employees() {
 
     setFilteredEmployees(filtered);
   };
+
+  const fetchTechnologies = async () => {
+    try {
+      const response = await axios.get('/api/user-technologies/all');
+      setAllTechnologies(response.data);
+    } catch (error) {
+      console.error('Error fetching technologies:', error);
+    }
+  };
+
+  const handleTechnologyToggle = (techId: string) => {
+    setSelectedTechnologyIds((prev) =>
+      prev.includes(techId) ? prev.filter((id) => id !== techId) : [...prev, techId]
+    );
+  };
+
+  const filteredTechnologies = allTechnologies.filter((tech) =>
+    tech.name.toLowerCase().includes(technologySearch.trim().toLowerCase())
+  );
+
+  const selectedTechnologies = allTechnologies.filter((tech) =>
+    selectedTechnologyIds.includes(tech.id)
+  );
 
   return (
     <div className="employees-page">
@@ -139,6 +179,56 @@ export default function Employees() {
               <option value="Female">Female</option>
               <option value="Other">Other</option>
             </select>
+          </div>
+
+          <div className="filter-section">
+            <div className="filter-header">
+              <span className="filter-title">Technologies</span>
+              <span className="filter-count">{allTechnologies.length}</span>
+            </div>
+            <input
+              type="text"
+              placeholder="Search technologies..."
+              value={technologySearch}
+              onChange={(e) => setTechnologySearch(e.target.value)}
+              className="search-input"
+            />
+            <div className="tech-filter-list">
+              <div className="faceted-list">
+                {filteredTechnologies.length === 0 ? (
+                  <div className="no-results">No technologies found</div>
+                ) : (
+                  filteredTechnologies.map((tech) => (
+                    <label key={tech.id} className="facet-option">
+                      <input
+                        type="checkbox"
+                        checked={selectedTechnologyIds.includes(tech.id)}
+                        onChange={() => handleTechnologyToggle(tech.id)}
+                      />
+                      <span>{tech.name}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+            {selectedTechnologies.length > 0 && (
+              <div className="selected-tech">
+                <div className="selected-tech-label">Selected skills</div>
+                <div className="selected-tech-list">
+                  {selectedTechnologies.map((tech) => (
+                    <button
+                      key={tech.id}
+                      type="button"
+                      className="selected-tech-tag"
+                      onClick={() => handleTechnologyToggle(tech.id)}
+                      aria-label={`Remove ${tech.name}`}
+                    >
+                      {tech.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </aside>
 

@@ -9,6 +9,8 @@ interface PendingRequest {
   from: string;
   to: string;
   status: 'pending';
+  isBackdated?: boolean;
+  files?: { id: string; originalName: string }[];
   user: {
     id: string;
     firstName: string;
@@ -45,6 +47,7 @@ export default function Admin() {
     phone: '',
     telegram: '',
     birthDate: '',
+    hireDate: '',
     positionId: '',
     gender: '',
     city: '',
@@ -115,6 +118,25 @@ export default function Admin() {
     }
   };
 
+  const handleDownloadFile = async (fileId: string, fileName: string) => {
+    try {
+      const response = await axios.get(`/api/absences/files/${fileId}`, {
+        responseType: 'blob',
+      });
+
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      alert('Failed to download file');
+    }
+  };
+
   const handleCreateUser = async () => {
     try {
       await axios.post('/api/admin/users', newUser);
@@ -127,6 +149,7 @@ export default function Admin() {
         phone: '',
         telegram: '',
         birthDate: '',
+        hireDate: '',
         positionId: '',
         gender: '',
         city: '',
@@ -150,6 +173,7 @@ export default function Admin() {
       phone: user.phone || '',
       telegram: user.telegram || '',
       birthDate: user.birthDate ? new Date(user.birthDate).toISOString().split('T')[0] : '',
+      hireDate: user.hireDate ? new Date(user.hireDate).toISOString().split('T')[0] : '',
       positionId: user.positionId || '',
       gender: user.gender || '',
       city: user.city || '',
@@ -177,6 +201,7 @@ export default function Admin() {
         phone: '',
         telegram: '',
         birthDate: '',
+        hireDate: '',
         positionId: '',
         gender: '',
         city: '',
@@ -233,7 +258,7 @@ export default function Admin() {
   return (
     <div className="admin-page">
       <div className="admin-header">
-        <h1>Admin Panel - StellarTech</h1>
+        <h1>Admin Panel - Stellars Tech</h1>
         <div className="admin-actions">
           <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
             Create User
@@ -253,11 +278,27 @@ export default function Admin() {
                   <div className="request-user">
                     {request.user.firstName} {request.user.lastName}
                   </div>
-                  <div className="request-type">{getTypeLabel(request.type)}</div>
+                  <div className="request-type">
+                    {getTypeLabel(request.type)}
+                    {request.isBackdated && <span className="request-badge">Backdated</span>}
+                  </div>
                   <div className="request-dates">
                     {format(new Date(request.from), 'MMM dd, yyyy')} -{' '}
                     {format(new Date(request.to), 'MMM dd, yyyy')}
                   </div>
+                  {request.files && request.files.length > 0 && (
+                    <div className="request-files">
+                      {request.files.map((file) => (
+                        <button
+                          key={file.id}
+                          className="btn-secondary btn-sm"
+                          onClick={() => handleDownloadFile(file.id, file.originalName)}
+                        >
+                          Download {file.originalName}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="request-actions">
                   <button
@@ -396,6 +437,16 @@ export default function Admin() {
                   onChange={(e) => setNewUser({ ...newUser, birthDate: e.target.value })}
                 />
               </div>
+              {editingUser && (
+                <div className="form-group">
+                  <label>Hire Date</label>
+                  <input
+                    type="date"
+                    value={newUser.hireDate}
+                    onChange={(e) => setNewUser({ ...newUser, hireDate: e.target.value })}
+                  />
+                </div>
+              )}
               <div className="form-group">
                 <label>Position</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -449,14 +500,14 @@ export default function Admin() {
                   onChange={(e) => setNewUser({ ...newUser, country: e.target.value })}
                 />
               </div>
-              <div className="form-group">
-                <label>
+              <div className="form-group admin-checkbox">
+                <label className="checkbox-pill">
                   <input
                     type="checkbox"
                     checked={newUser.isAdmin}
                     onChange={(e) => setNewUser({ ...newUser, isAdmin: e.target.checked })}
                   />
-                  Is Admin
+                  <span>Is Admin</span>
                 </label>
               </div>
               <div className="form-group full-width">

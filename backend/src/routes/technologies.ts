@@ -14,8 +14,8 @@ const updateTechnologySchema = z.object({
   name: z.string().min(1),
 });
 
-// Get all technologies (public for users to see, but only admins can modify)
-router.get('/', authenticateToken, async (req: AuthRequest, res) => {
+// Get all technologies (admin only)
+router.get('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const technologies = await prisma.technology.findMany({
       orderBy: {

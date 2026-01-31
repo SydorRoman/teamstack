@@ -13,11 +13,18 @@ interface Employee {
   phone: string | null;
   telegram: string | null;
   birthDate: string | null;
+  hireDate: string | null;
   position: { id: string; name: string } | string | null;
   gender: string | null;
   city: string | null;
   country: string | null;
   projects: Array<{ id: string; name: string }>;
+  technologies: Array<{ id: string; name: string }>;
+}
+
+interface Technology {
+  id: string;
+  name: string;
 }
 
 export default function EmployeeProfile() {
@@ -28,6 +35,16 @@ export default function EmployeeProfile() {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [allTechnologies, setAllTechnologies] = useState<Technology[]>([]);
+  const [selectedTechnologyIds, setSelectedTechnologyIds] = useState<string[]>([]);
+  const [isTechnologiesModalOpen, setIsTechnologiesModalOpen] = useState(false);
+  const [technologySearch, setTechnologySearch] = useState('');
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [isPasswordSaving, setIsPasswordSaving] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -35,6 +52,7 @@ export default function EmployeeProfile() {
     phone: '',
     telegram: '',
     birthDate: '',
+    hireDate: '',
     gender: '',
     city: '',
     country: '',
@@ -47,6 +65,12 @@ export default function EmployeeProfile() {
   }, [id]);
 
   useEffect(() => {
+    if (id) {
+      fetchAllTechnologies();
+    }
+  }, [id]);
+
+  useEffect(() => {
     if (employee && !isEditing) {
       setFormData({
         firstName: employee.firstName || '',
@@ -55,10 +79,12 @@ export default function EmployeeProfile() {
         phone: employee.phone || '',
         telegram: employee.telegram || '',
         birthDate: employee.birthDate ? format(new Date(employee.birthDate), 'yyyy-MM-dd') : '',
+        hireDate: employee.hireDate ? format(new Date(employee.hireDate), 'yyyy-MM-dd') : '',
         gender: employee.gender || '',
         city: employee.city || '',
         country: employee.country || '',
       });
+      setSelectedTechnologyIds(employee.technologies.map((tech) => tech.id));
     }
   }, [employee, isEditing]);
 
@@ -73,7 +99,17 @@ export default function EmployeeProfile() {
     }
   };
 
+  const fetchAllTechnologies = async () => {
+    try {
+      const response = await axios.get('/api/user-technologies/all');
+      setAllTechnologies(response.data);
+    } catch (error) {
+      console.error('Error fetching technologies:', error);
+    }
+  };
+
   const canEdit = Boolean(user?.isAdmin || (user?.id && user.id === id));
+  const isSelf = Boolean(user?.id && user.id === id);
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -83,9 +119,11 @@ export default function EmployeeProfile() {
     if (!id) return;
     setIsSaving(true);
     try {
-      const response = await axios.put(`/api/employees/${id}`, {
-        ...formData,
-      });
+      const payload: typeof formData = { ...formData };
+      if (!user?.isAdmin) {
+        delete (payload as typeof formData & { hireDate?: string }).hireDate;
+      }
+      const response = await axios.put(`/api/employees/${id}`, payload);
       setEmployee(response.data);
       setIsEditing(false);
       if (user?.id === id) {
@@ -100,6 +138,75 @@ export default function EmployeeProfile() {
       alert(error.response?.data?.error || 'Failed to update profile');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const saveTechnologies = async (technologyIds: string[]) => {
+    if (!id) return;
+    try {
+      const response = await axios.put(`/api/user-technologies/${id}`, {
+        technologyIds,
+      });
+      setEmployee((prev) => (prev ? { ...prev, technologies: response.data } : prev));
+    } catch (error: any) {
+      console.error('Error updating technologies:', error);
+      alert(error.response?.data?.error || 'Failed to update technologies');
+    }
+  };
+
+  const toggleTechnology = (techId: string) => {
+    if (!canEdit) return;
+    setSelectedTechnologyIds((prev) => {
+      const next = prev.includes(techId) ? prev.filter((id) => id !== techId) : [...prev, techId];
+      void saveTechnologies(next);
+      return next;
+    });
+  };
+
+  const handleTechnologyAdd = (techId: string) => {
+    if (!canEdit || selectedTechnologyIds.includes(techId)) return;
+    setSelectedTechnologyIds((prev) => {
+      const next = [...prev, techId];
+      void saveTechnologies(next);
+      return next;
+    });
+  };
+
+  const selectedTechnologies = allTechnologies.filter((tech) =>
+    selectedTechnologyIds.includes(tech.id)
+  );
+
+  const filteredTechnologies = allTechnologies.filter((tech) =>
+    tech.name.toLowerCase().includes(technologySearch.trim().toLowerCase())
+  );
+
+  const handlePasswordSave = async () => {
+    if (!id) return;
+    if (passwordData.newPassword.length < 6) {
+      alert('New password must be at least 6 characters long');
+      return;
+    }
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      alert('New password and confirmation do not match');
+      return;
+    }
+    setIsPasswordSaving(true);
+    try {
+      await axios.put(`/api/employees/${id}/password`, {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+      alert('Password updated successfully');
+    } catch (error: any) {
+      console.error('Error updating password:', error);
+      alert(error.response?.data?.error || 'Failed to update password');
+    } finally {
+      setIsPasswordSaving(false);
     }
   };
 
@@ -225,6 +332,20 @@ export default function EmployeeProfile() {
               )}
             </div>
             <div className="info-item">
+              <label>Hire Date</label>
+              {isEditing && user?.isAdmin ? (
+                <input
+                  type="date"
+                  value={formData.hireDate}
+                  onChange={(e) => handleInputChange('hireDate', e.target.value)}
+                />
+              ) : (
+                <span>
+                  {employee.hireDate ? format(new Date(employee.hireDate), 'MMM dd, yyyy') : '-'}
+                </span>
+              )}
+            </div>
+            <div className="info-item">
               <label>Position</label>
               <span>{getPositionName()}</span>
             </div>
@@ -292,7 +413,150 @@ export default function EmployeeProfile() {
         </div>
 
         <div className="profile-section">
-          <h2>Projects</h2>
+          <div className="profile-section-header">
+            <h2>Technologies</h2>
+          </div>
+          {allTechnologies.length === 0 ? (
+            <p className="no-projects">No technologies available</p>
+          ) : (
+            <>
+              <div className="technology-actions">
+                <button
+                  type="button"
+                  className="profile-save-button"
+                  onClick={() => setIsTechnologiesModalOpen(true)}
+                  disabled={!canEdit}
+                >
+                  Add technologies
+                </button>
+              </div>
+              {selectedTechnologies.length === 0 ? (
+                <p className="no-projects">No technologies selected</p>
+              ) : (
+                <div className="technologies-list">
+                  {selectedTechnologies.map((tech) => (
+                    <label key={tech.id} className="technology-option">
+                      <input
+                        type="checkbox"
+                        checked={selectedTechnologyIds.includes(tech.id)}
+                        onChange={() => toggleTechnology(tech.id)}
+                        disabled={!canEdit}
+                      />
+                      <span>{tech.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              {isTechnologiesModalOpen && (
+                <div className="technology-modal-backdrop">
+                  <div className="technology-modal">
+                    <div className="technology-modal-header">
+                      <h3>Technologies</h3>
+                      <button
+                        type="button"
+                        className="technology-modal-close"
+                        onClick={() => {
+                          setIsTechnologiesModalOpen(false);
+                          setTechnologySearch('');
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="technology-modal-search">
+                      <input
+                        type="text"
+                        value={technologySearch}
+                        onChange={(e) => setTechnologySearch(e.target.value)}
+                        placeholder="Search technologies..."
+                        autoFocus
+                      />
+                    </div>
+                    <div className="technology-modal-list">
+                      {filteredTechnologies.length === 0 ? (
+                        <p className="no-projects">No technologies found</p>
+                      ) : (
+                        filteredTechnologies.map((tech) => {
+                          const isSelected = selectedTechnologyIds.includes(tech.id);
+                          return (
+                            <button
+                              type="button"
+                              key={tech.id}
+                              className={`technology-modal-item${isSelected ? ' selected' : ''}`}
+                              onClick={() => handleTechnologyAdd(tech.id)}
+                              disabled={isSelected || !canEdit}
+                            >
+                              <span>{tech.name}</span>
+                              {isSelected && <span className="technology-modal-tag">Added</span>}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {isSelf && (
+          <div className="profile-section">
+            <div className="profile-section-header">
+              <h2>Security</h2>
+            </div>
+            <div className="info-grid">
+              <div className="info-item">
+                <label>Current Password</label>
+                <input
+                  type="password"
+                  value={passwordData.currentPassword}
+                  onChange={(e) =>
+                    setPasswordData((prev) => ({ ...prev, currentPassword: e.target.value }))
+                  }
+                  autoComplete="current-password"
+                />
+              </div>
+              <div className="info-item">
+                <label>New Password</label>
+                <input
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e) =>
+                    setPasswordData((prev) => ({ ...prev, newPassword: e.target.value }))
+                  }
+                  autoComplete="new-password"
+                />
+              </div>
+              <div className="info-item">
+                <label>Confirm New Password</label>
+                <input
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) =>
+                    setPasswordData((prev) => ({ ...prev, confirmPassword: e.target.value }))
+                  }
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+            <div className="profile-actions">
+              <button
+                type="button"
+                className="profile-save-button"
+                onClick={handlePasswordSave}
+                disabled={isPasswordSaving}
+              >
+                {isPasswordSaving ? 'Updating...' : 'Update Password'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="profile-section">
+          <div className="profile-section-header">
+            <h2>Projects</h2>
+          </div>
           {employee.projects.length === 0 ? (
             <p className="no-projects">No projects assigned</p>
           ) : (

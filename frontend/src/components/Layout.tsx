@@ -90,15 +90,15 @@ export default function Layout() {
               Timesheets
             </Link>
           </li>
-          <li>
-            <Link to="/technologies" className={isActive('/technologies') ? 'active' : ''}>
-              Technologies
-            </Link>
-          </li>
           {user?.isAdmin && (
             <>
               <li className="nav-separator" aria-hidden="true">
                 <hr className="nav-separator-line" />
+              </li>
+              <li>
+                <Link to="/technologies" className={adminLinkClass(isActive('/technologies'))}>
+                  Technologies
+                </Link>
               </li>
               <li>
                 <Link to="/admin" className={adminLinkClass(isActive('/admin'))}>
@@ -106,6 +106,11 @@ export default function Layout() {
                   {pendingCount > 0 && (
                     <span className="notification-badge">{pendingCount}</span>
                   )}
+                </Link>
+              </li>
+              <li>
+                <Link to="/settings" className={adminLinkClass(isActive('/settings'))}>
+                  Settings
                 </Link>
               </li>
               <li>

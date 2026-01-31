@@ -22,6 +22,8 @@ interface MonthlyCalendarProps {
   currentDate: Date;
   absences: Absence[];
   onMonthChange: (date: Date) => void;
+  onDayClick: (date: Date) => void;
+  onAbsenceClick: (absence: Absence) => void;
   maxVisibleBars?: number;
 }
 
@@ -29,6 +31,8 @@ export function MonthlyCalendar({
   currentDate,
   absences,
   onMonthChange,
+  onDayClick,
+  onAbsenceClick,
   maxVisibleBars = 3,
 }: MonthlyCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -186,16 +190,14 @@ export function MonthlyCalendar({
                 key={date.toISOString()}
                 className={`calendar-day-cell ${isWeekend ? 'weekend' : ''} ${!isCurrentMonth ? 'other-month' : ''}`}
                 onClick={() => {
-                  if (bookings.length > 0) {
-                    setSelectedDate(date);
-                  }
+                  onDayClick(date);
                 }}
-                role={bookings.length > 0 ? 'button' : undefined}
-                tabIndex={bookings.length > 0 ? 0 : undefined}
+                role="button"
+                tabIndex={0}
                 onKeyDown={(e) => {
-                  if (bookings.length > 0 && (e.key === 'Enter' || e.key === ' ')) {
+                  if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    setSelectedDate(date);
+                    onDayClick(date);
                   }
                 }}
                 aria-label={`${format(date, 'MMMM dd, yyyy')} - ${bookings.length} booking${bookings.length !== 1 ? 's' : ''}`}
@@ -211,6 +213,10 @@ export function MonthlyCalendar({
                         userId={booking.user.id}
                         type={booking.type}
                         compact={true}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onAbsenceClick(booking);
+                        }}
                       />
                     ))}
                     {remainingCount > 0 && (

@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 const router = express.Router();
 const prisma = new PrismaClient();
+const prismaAny = prisma as typeof prisma & { settings: any; settingsChangeLog: any; absence: any };
 
 router.use(authenticateToken);
 
@@ -46,6 +47,15 @@ router.get('/projects', async (req: AuthRequest, res) => {
 // All other routes require admin access
 router.use(requireAdmin);
 
+const SETTINGS_ID = 'global';
+
+const updateSettingsSchema = z.object({
+  vacationFutureAccrueDays: z.number().min(0),
+  sickLeaveWithoutCertificateLimit: z.number().int().min(0),
+  sickLeaveWithCertificateLimit: z.number().int().min(0),
+  vacationCarryoverLimit: z.number().int().min(0),
+});
+
 const createUserSchema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
@@ -58,7 +68,20 @@ const createUserSchema = z.object({
     .datetime()
     .optional()
     .or(z.literal('').transform(() => undefined)),
-  positionId: z.string().uuid().optional(),
+  hireDate: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val || val === '') return true;
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        const datetimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+        return dateRegex.test(val) || datetimeRegex.test(val);
+      },
+      { message: 'Invalid date format. Use YYYY-MM-DD or ISO datetime' }
+    )
+    .or(z.literal('').transform(() => undefined)),
+  positionId: z.string().uuid().optional().or(z.literal('').transform(() => undefined)),
   gender: z.string().optional(),
   city: z.string().optional(),
   country: z.string().optional(),
@@ -83,7 +106,7 @@ router.get('/pending-requests-count', async (req, res) => {
 
 router.get('/pending-requests', async (req, res) => {
   try {
-    const absences = await prisma.absence.findMany({
+    const absences = await prismaAny.absence.findMany({
       where: {
         status: 'pending',
       },
@@ -96,15 +119,154 @@ router.get('/pending-requests', async (req, res) => {
             email: true,
           },
         },
+        files: true,
       },
       orderBy: {
         createdAt: 'desc',
       },
     });
 
-    res.json(absences);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const response = absences.map((absence: { from: Date }) => ({
+      ...absence,
+      isBackdated: new Date(absence.from).setHours(0, 0, 0, 0) < today.getTime(),
+    }));
+
+    res.json(response);
   } catch (error) {
     console.error('Error fetching pending requests:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/settings', async (req, res) => {
+  try {
+    const settings = await prismaAny.settings.findUnique({
+      where: { id: SETTINGS_ID },
+    });
+
+    if (!settings) {
+      const created = await prismaAny.settings.create({
+        data: {
+          id: SETTINGS_ID,
+          vacationFutureAccrueDays: 1.5,
+          sickLeaveWithoutCertificateLimit: 5,
+          sickLeaveWithCertificateLimit: 5,
+          vacationCarryoverLimit: 0,
+        },
+      });
+      return res.json(created);
+    }
+
+    res.json(settings);
+  } catch (error) {
+    console.error('Error fetching settings:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/settings/logs', async (req, res) => {
+  try {
+    const logs = await prismaAny.settingsChangeLog.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        admin: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    res.json(logs);
+  } catch (error) {
+    console.error('Error fetching settings change logs:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.put('/settings', async (req: AuthRequest, res) => {
+  try {
+    const { userId } = req;
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    const data = updateSettingsSchema.parse(req.body);
+
+    const admin = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!admin) {
+      return res.status(400).json({ error: 'Admin user not found. Please log in again.' });
+    }
+
+    const existing = await prismaAny.settings.findUnique({
+      where: { id: SETTINGS_ID },
+    });
+
+    const settings = await prismaAny.settings.upsert({
+      where: { id: SETTINGS_ID },
+      update: {
+        vacationFutureAccrueDays: data.vacationFutureAccrueDays,
+        sickLeaveWithoutCertificateLimit: data.sickLeaveWithoutCertificateLimit,
+        sickLeaveWithCertificateLimit: data.sickLeaveWithCertificateLimit,
+        vacationCarryoverLimit: data.vacationCarryoverLimit,
+      },
+      create: {
+        id: SETTINGS_ID,
+        vacationFutureAccrueDays: data.vacationFutureAccrueDays,
+        sickLeaveWithoutCertificateLimit: data.sickLeaveWithoutCertificateLimit,
+        sickLeaveWithCertificateLimit: data.sickLeaveWithCertificateLimit,
+        vacationCarryoverLimit: data.vacationCarryoverLimit,
+      },
+    });
+
+    const previousVacationFutureAccrue =
+      existing?.vacationFutureAccrueDays ?? settings.vacationFutureAccrueDays;
+    const previousSickLeaveWithoutCertificateLimit =
+      existing?.sickLeaveWithoutCertificateLimit ?? settings.sickLeaveWithoutCertificateLimit;
+    const previousSickLeaveWithCertificateLimit =
+      existing?.sickLeaveWithCertificateLimit ?? settings.sickLeaveWithCertificateLimit;
+    const previousVacationCarryoverLimit =
+      existing?.vacationCarryoverLimit ?? settings.vacationCarryoverLimit;
+
+    const changesDetected =
+      previousVacationFutureAccrue !== settings.vacationFutureAccrueDays ||
+      previousSickLeaveWithoutCertificateLimit !== settings.sickLeaveWithoutCertificateLimit ||
+      previousSickLeaveWithCertificateLimit !== settings.sickLeaveWithCertificateLimit ||
+      previousVacationCarryoverLimit !== settings.vacationCarryoverLimit;
+
+    if (changesDetected) {
+      await prismaAny.settingsChangeLog.create({
+        data: {
+          settingsId: settings.id,
+          adminId: admin.id,
+          previousVacationFutureAccrue,
+          newVacationFutureAccrue: settings.vacationFutureAccrueDays,
+          previousSickLeaveWithoutCertificateLimit,
+          newSickLeaveWithoutCertificateLimit: settings.sickLeaveWithoutCertificateLimit,
+          previousSickLeaveWithCertificateLimit,
+          newSickLeaveWithCertificateLimit: settings.sickLeaveWithCertificateLimit,
+          previousVacationCarryoverLimit,
+          newVacationCarryoverLimit: settings.vacationCarryoverLimit,
+        },
+      });
+    }
+
+    res.json(settings);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
+    console.error('Error updating settings:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -164,6 +326,7 @@ router.patch('/requests/:id/reject', async (req, res) => {
 router.get('/users', async (req, res) => {
   try {
     const users = await prisma.user.findMany({
+      where: { deletedAt: null },
       select: {
         id: true,
         firstName: true,
@@ -172,6 +335,7 @@ router.get('/users', async (req, res) => {
         phone: true,
         telegram: true,
         birthDate: true,
+        hireDate: true,
         positionId: true,
         position: {
           select: {
@@ -226,6 +390,15 @@ router.post('/users', async (req, res) => {
               return new Date(Date.UTC(year, month - 1, day));
             })()
           : null,
+        hireDate: data.hireDate && data.hireDate.trim() !== ''
+          ? (() => {
+              const dateStr = data.hireDate.includes('T')
+                ? data.hireDate.split('T')[0]
+                : data.hireDate;
+              const [year, month, day] = dateStr.split('-').map(Number);
+              return new Date(Date.UTC(year, month - 1, day));
+            })()
+          : null,
         positionId: data.positionId || null,
         projects: projectIds
           ? {
@@ -265,6 +438,7 @@ const updateUserSchema = z.object({
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
   email: z.string().email().optional(),
+  password: z.string().min(6).optional(),
   phone: z.string().optional(),
   telegram: z.string().optional(),
   birthDate: z
@@ -281,7 +455,20 @@ const updateUserSchema = z.object({
       { message: 'Invalid date format. Use YYYY-MM-DD or ISO datetime' }
     )
     .or(z.literal('').transform(() => undefined)),
-  positionId: z.string().uuid().optional(),
+  hireDate: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val || val === '') return true;
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        const datetimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+        return dateRegex.test(val) || datetimeRegex.test(val);
+      },
+      { message: 'Invalid date format. Use YYYY-MM-DD or ISO datetime' }
+    )
+    .or(z.literal('').transform(() => undefined)),
+  positionId: z.string().uuid().optional().or(z.literal('').transform(() => undefined)),
   gender: z.string().optional(),
   city: z.string().optional(),
   country: z.string().optional(),
@@ -293,9 +480,17 @@ router.put('/users/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const data = updateUserSchema.parse(req.body);
-    const { projectIds, ...userData } = data;
+    const { projectIds, password, ...userData } = data;
 
     const updateData: any = { ...userData };
+
+    const existingUser = await prisma.user.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
 
     if (data.birthDate && data.birthDate.trim() !== '') {
       // Parse date string (YYYY-MM-DD) as UTC midnight to avoid timezone issues
@@ -310,6 +505,16 @@ router.put('/users/:id', async (req, res) => {
       updateData.birthDate = null;
     }
 
+    if (data.hireDate && data.hireDate.trim() !== '') {
+      const dateStr = data.hireDate.includes('T')
+        ? data.hireDate.split('T')[0]
+        : data.hireDate;
+      const [year, month, day] = dateStr.split('-').map(Number);
+      updateData.hireDate = new Date(Date.UTC(year, month - 1, day));
+    } else if (data.hireDate === '') {
+      updateData.hireDate = null;
+    }
+
     if (data.positionId !== undefined) {
       updateData.positionId = data.positionId || null;
     }
@@ -318,6 +523,10 @@ router.put('/users/:id', async (req, res) => {
       updateData.projects = {
         set: projectIds.map((projectId) => ({ id: projectId })),
       };
+    }
+
+    if (password) {
+      updateData.passwordHash = await bcrypt.hash(password, 10);
     }
 
     const user = await prisma.user.update({
@@ -333,6 +542,7 @@ router.put('/users/:id', async (req, res) => {
 
     res.json(userWithoutPassword);
   } catch (error) {
+    console.error('Error updating user:', error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }
@@ -345,8 +555,22 @@ router.delete('/users/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    await prisma.user.delete({
+    const user = await prisma.user.findUnique({
       where: { id },
+      select: { isAdmin: true, deletedAt: true },
+    });
+
+    if (!user || user.deletedAt) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.isAdmin) {
+      return res.status(400).json({ error: 'Admin users cannot be deleted' });
+    }
+
+    await prisma.user.update({
+      where: { id },
+      data: { deletedAt: new Date() },
     });
 
     res.json({ message: 'User deleted successfully' });

@@ -12,6 +12,7 @@ interface Absence {
   from: string;
   to: string;
   status: 'pending' | 'approved' | 'rejected';
+  files?: { id: string; originalName: string }[];
   user: {
     id: string;
     firstName: string;
@@ -41,6 +42,9 @@ export default function Home() {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [userSearch, setUserSearch] = useState<string>('');
   const [showModal, setShowModal] = useState(false);
+  const [initialAbsenceValues, setInitialAbsenceValues] = useState<Partial<AbsenceFormData> | undefined>(undefined);
+  const [selectedAbsence, setSelectedAbsence] = useState<Absence | null>(null);
+  const [canDeleteAbsenceFiles, setCanDeleteAbsenceFiles] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
@@ -103,14 +107,57 @@ export default function Home() {
 
     setIsCreating(true);
     try {
-      const payload = {
-        type: data.type,
-        from: data.dateRange.from,
-        to: data.dateRange.to,
-      };
+      if (selectedAbsence) {
+        if (selectedAbsence.type !== 'sick_leave') {
+          alert('Files can only be added to Sick Leave absences.');
+          return;
+        }
 
-      await axios.post('/api/absences', payload);
+        if (!data.files || data.files.length === 0) {
+          alert('Please attach at least one file.');
+          return;
+        }
+
+        const formData = new FormData();
+        data.files.forEach((file) => {
+          formData.append('files', file);
+        });
+
+        await axios.post(`/api/absences/${selectedAbsence.id}/files`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else if (data.type === 'sick_leave') {
+        const formData = new FormData();
+        formData.append('type', data.type);
+        formData.append('from', data.dateRange.from);
+        formData.append('to', data.dateRange.to);
+
+        if (data.files && data.files.length > 0) {
+          data.files.forEach((file) => {
+            formData.append('files', file);
+          });
+        }
+
+        await axios.post('/api/absences', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else {
+        const payload = {
+          type: data.type,
+          from: data.dateRange.from,
+          to: data.dateRange.to,
+        };
+
+        await axios.post('/api/absences', payload);
+      }
       setShowModal(false);
+      setInitialAbsenceValues(undefined);
+      setSelectedAbsence(null);
+      setCanDeleteAbsenceFiles(false);
       fetchAbsences();
     } catch (error: any) {
       console.error('Error creating absence:', error);
@@ -140,6 +187,51 @@ export default function Home() {
 
   const handleMonthChange = (date: Date) => {
     setCurrentDate(date);
+  };
+
+  const handleDayClick = (date: Date) => {
+    const selectedDate = new Date(date);
+    selectedDate.setHours(12, 0, 0, 0);
+
+    setInitialAbsenceValues({
+      dateRange: {
+        from: selectedDate.toISOString(),
+        to: selectedDate.toISOString(),
+      },
+    });
+    setSelectedAbsence(null);
+    setCanDeleteAbsenceFiles(false);
+    setShowModal(true);
+  };
+
+  const handleAbsenceClick = (absence: Absence) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const absenceStart = new Date(absence.from);
+    absenceStart.setHours(0, 0, 0, 0);
+    const canDeleteFiles = absenceStart >= today && absence.status !== 'approved';
+
+    setSelectedAbsence(absence);
+    setInitialAbsenceValues({
+      type: absence.type,
+      dateRange: {
+        from: new Date(absence.from).toISOString(),
+        to: new Date(absence.to).toISOString(),
+      },
+      existingFiles: absence.files?.map((file) => ({
+        id: file.id,
+        originalName: file.originalName,
+      })),
+    });
+    setCanDeleteAbsenceFiles(canDeleteFiles);
+    setShowModal(true);
+  };
+
+  const handleOpenNewAbsence = () => {
+    setInitialAbsenceValues(undefined);
+    setSelectedAbsence(null);
+    setCanDeleteAbsenceFiles(false);
+    setShowModal(true);
   };
 
   const filteredUsers = userSearch
@@ -184,7 +276,7 @@ export default function Home() {
     <div className="home-page">
       <div className="page-header">
         <h1>Calendar</h1>
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
+        <button className="btn-primary" onClick={handleOpenNewAbsence}>
           New Absence
         </button>
       </div>
@@ -281,6 +373,8 @@ export default function Home() {
                 currentDate={currentDate}
                 absences={absences}
                 onMonthChange={handleMonthChange}
+                onDayClick={handleDayClick}
+                onAbsenceClick={handleAbsenceClick}
                 maxVisibleBars={3}
               />
             </>
@@ -294,8 +388,17 @@ export default function Home() {
             <h2>New Absence</h2>
             <AbsenceForm
               onSubmit={handleCreateAbsence}
-              onCancel={() => setShowModal(false)}
+              onCancel={() => {
+                setShowModal(false);
+                setInitialAbsenceValues(undefined);
+                setSelectedAbsence(null);
+                setCanDeleteAbsenceFiles(false);
+              }}
+              initialValues={initialAbsenceValues}
               loading={isCreating}
+              disableType={Boolean(selectedAbsence)}
+              disableDateRange={Boolean(selectedAbsence)}
+              canDeleteExistingFiles={canDeleteAbsenceFiles}
             />
           </div>
         </div>

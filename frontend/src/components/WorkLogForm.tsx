@@ -6,7 +6,7 @@ export interface WorkLogFormData {
   date: string;
   start: string;
   end: string;
-  projectId?: string;
+  projectId: string;
   note?: string;
 }
 
@@ -67,7 +67,7 @@ export function WorkLogForm({
       date: date.toISOString(),
       start: start.toISOString(),
       end: end.toISOString(),
-      projectId: data.projectId || undefined,
+      projectId: data.projectId,
       note: data.note || undefined,
     };
 
@@ -122,10 +122,12 @@ export function WorkLogForm({
         </div>
 
         <div className="form-group">
-          <label htmlFor="projectId">Project</label>
+          <label htmlFor="projectId">Project *</label>
           <select
             id="projectId"
-            {...register('projectId')}
+            {...register('projectId', {
+              required: 'Project is required',
+            })}
             className={errors.projectId ? 'error' : ''}
           >
             <option value="">Select a project</option>

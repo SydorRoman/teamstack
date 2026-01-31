@@ -1,12 +1,12 @@
 {
   "name": "teamstack",
   "version": "1.0.0",
-  "description": "StellarTech - Full-stack admin panel application",
+  "description": "Stellars Tech - Full-stack admin panel application",
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
-    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+    "i:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

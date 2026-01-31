@@ -1,6 +1,8 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth.js';
+import { addWorkingDays } from '../utils/dateUtils.js';
+import { countWorkingDays } from '../utils/dateUtils.js';
 import { z } from 'zod';
 
 const router = express.Router();
@@ -26,12 +28,72 @@ interface WorkLogWithRelations {
   } | null;
 }
 
+interface AbsenceReportItem {
+  id: string;
+  type: 'sick_leave' | 'day_off' | 'vacation' | 'work_from_home';
+  from: Date;
+  to: Date;
+  status: 'pending' | 'approved' | 'rejected';
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  workingDays: number;
+  hours: number;
+}
+
+interface SettingsData {
+  vacationCarryoverLimit: number;
+  sickLeaveWithoutCertificateLimit: number;
+  sickLeaveWithCertificateLimit: number;
+}
+
+const SETTINGS_ID = 'global';
+
+async function getSettings(): Promise<SettingsData> {
+  const settings = await (prisma as any).settings.findUnique({
+    where: { id: SETTINGS_ID },
+  });
+
+  if (settings) {
+    return settings as SettingsData;
+  }
+
+  return (prisma as any).settings.create({
+    data: {
+      id: SETTINGS_ID,
+      vacationFutureAccrueDays: 1.5,
+      vacationCarryoverLimit: 0,
+      sickLeaveWithoutCertificateLimit: 5,
+      sickLeaveWithCertificateLimit: 5,
+    },
+  }) as SettingsData;
+}
+
+function countWorkingDaysWithinRange(
+  from: Date,
+  to: Date,
+  rangeStart: Date,
+  rangeEnd: Date
+): number {
+  const start = new Date(Math.max(from.getTime(), rangeStart.getTime()));
+  const end = new Date(Math.min(to.getTime(), rangeEnd.getTime()));
+
+  if (end < start) {
+    return 0;
+  }
+
+  return countWorkingDays(start, end);
+}
+
 const createWorkLogSchema = z
   .object({
     date: z.string().datetime(),
     start: z.string().datetime(),
     end: z.string().datetime(),
-    projectId: z.string().uuid().optional(),
+    projectId: z.string().uuid(),
     note: z.string().optional(),
   })
   .refine(
@@ -63,9 +125,18 @@ const updateWorkLogSchema = z.object({
   date: z.string().datetime().optional(),
   start: z.string().datetime().optional(),
   end: z.string().datetime().optional(),
-  projectId: z.string().uuid().optional(),
+  projectId: z.string().uuid(),
   note: z.string().optional(),
 });
+
+function calculateIsPastDue(logDate: Date, now: Date = new Date()): boolean {
+  const normalizedLogDate = new Date(logDate);
+  normalizedLogDate.setHours(0, 0, 0, 0);
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const pastDueDate = addWorkingDays(normalizedLogDate, 5);
+  return today > pastDueDate;
+}
 
 // Create work log
 router.post('/', authenticateToken, async (req: AuthRequest, res) => {
@@ -74,10 +145,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
     const data = createWorkLogSchema.parse(req.body);
 
     const logDate = new Date(data.date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    logDate.setHours(0, 0, 0, 0);
-    const isPastDue = logDate < today;
+    const isPastDue = calculateIsPastDue(logDate);
 
     const workLog = await prisma.workLog.create({
       data: {
@@ -107,7 +175,10 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       },
     });
 
-    res.status(201).json(workLog);
+    res.status(201).json({
+      ...workLog,
+      isPastDue: calculateIsPastDue(workLog.date),
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       const errorMessages = error.errors.map((err) => {
@@ -158,8 +229,12 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res) => {
         date: 'desc',
       },
     });
+    const workLogsWithPastDue = workLogs.map((log) => ({
+      ...log,
+      isPastDue: calculateIsPastDue(log.date),
+    }));
 
-    res.json(workLogs);
+    res.json(workLogsWithPastDue);
   } catch (error) {
     console.error('Error fetching work logs:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -214,8 +289,12 @@ router.get('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) =
         date: 'desc',
       },
     });
+    const workLogsWithPastDue = workLogs.map((log) => ({
+      ...log,
+      isPastDue: calculateIsPastDue(log.date),
+    }));
 
-    res.json(workLogs);
+    res.json(workLogsWithPastDue);
   } catch (error) {
     console.error('Error fetching work logs:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -270,6 +349,14 @@ router.get('/report', authenticateToken, requireAdmin, async (req: AuthRequest, 
         date: 'desc',
       },
     });
+    const workLogsWithPastDue = workLogs.map((log) => ({
+      ...log,
+      isPastDue: calculateIsPastDue(log.date),
+    }));
+
+    const [reportYear, reportMonth] = (month as string).split('-').map(Number);
+    const monthStart = new Date(reportYear, reportMonth - 1, 1);
+    const monthEnd = new Date(reportYear, reportMonth, 0, 23, 59, 59, 999);
 
     // Calculate summary per user
     const summary: Record<
@@ -282,10 +369,13 @@ router.get('/report', authenticateToken, requireAdmin, async (req: AuthRequest, 
         totalHours: number;
         totalDays: number;
         overtime: number;
+      sickLeaveHours: number;
+      vacationHours: number;
+      dayOffHours: number;
       }
     > = {};
 
-    workLogs.forEach((log: WorkLogWithRelations) => {
+    workLogsWithPastDue.forEach((log: WorkLogWithRelations) => {
       if (!log.user) return; // Skip if user data is missing
       
       const start = new Date(log.start);
@@ -302,6 +392,9 @@ router.get('/report', authenticateToken, requireAdmin, async (req: AuthRequest, 
           totalHours: 0,
           totalDays: 0,
           overtime: 0,
+        sickLeaveHours: 0,
+        vacationHours: 0,
+        dayOffHours: 0,
         };
       }
 
@@ -314,9 +407,150 @@ router.get('/report', authenticateToken, requireAdmin, async (req: AuthRequest, 
       summary[log.userId].overtime += overtime;
     });
 
+    const summaryUserIds = Object.keys(summary);
+    const reportUserIds =
+      userId && typeof userId === 'string' ? [userId] : summaryUserIds;
+    if (summaryUserIds.length > 0) {
+      const settings = await getSettings();
+      const sickLeaveLimit =
+        settings.sickLeaveWithoutCertificateLimit + settings.sickLeaveWithCertificateLimit;
+      const vacationLimit = 18 + settings.vacationCarryoverLimit;
+
+      const yearStart = new Date(reportYear, 0, 1);
+      const yearEnd = new Date(reportYear, 11, 31, 23, 59, 59, 999);
+      const beforeMonthEnd = new Date(monthStart);
+      beforeMonthEnd.setDate(beforeMonthEnd.getDate() - 1);
+      beforeMonthEnd.setHours(23, 59, 59, 999);
+
+      const absenceUsageRows = await prisma.absence.findMany({
+        where: {
+          userId: { in: summaryUserIds },
+          status: 'approved',
+          type: {
+            in: ['sick_leave', 'vacation', 'day_off'],
+          },
+          from: {
+            lte: yearEnd,
+          },
+          to: {
+            gte: yearStart,
+          },
+        },
+        select: {
+          userId: true,
+          type: true,
+          from: true,
+          to: true,
+        },
+      });
+
+      const usedBefore: Record<string, { sick_leave: number; vacation: number; day_off: number }> = {};
+      const usedInMonth: Record<string, { sick_leave: number; vacation: number; day_off: number }> = {};
+
+      for (const absence of absenceUsageRows) {
+        if (!usedBefore[absence.userId]) {
+          usedBefore[absence.userId] = { sick_leave: 0, vacation: 0, day_off: 0 };
+          usedInMonth[absence.userId] = { sick_leave: 0, vacation: 0, day_off: 0 };
+        }
+
+        const daysBefore =
+          beforeMonthEnd >= yearStart
+            ? countWorkingDaysWithinRange(
+                new Date(absence.from),
+                new Date(absence.to),
+                yearStart,
+                beforeMonthEnd
+              )
+            : 0;
+        const daysInMonth = countWorkingDaysWithinRange(
+          new Date(absence.from),
+          new Date(absence.to),
+          monthStart,
+          monthEnd
+        );
+
+        if (
+          absence.type !== 'sick_leave' &&
+          absence.type !== 'vacation' &&
+          absence.type !== 'day_off'
+        ) {
+          continue;
+        }
+
+        usedBefore[absence.userId][absence.type] += daysBefore;
+        usedInMonth[absence.userId][absence.type] += daysInMonth;
+      }
+
+      for (const userIdKey of summaryUserIds) {
+        const before = usedBefore[userIdKey] || { sick_leave: 0, vacation: 0, day_off: 0 };
+        const inMonth = usedInMonth[userIdKey] || { sick_leave: 0, vacation: 0, day_off: 0 };
+
+        const sickLeaveRemaining = Math.max(0, sickLeaveLimit - before.sick_leave);
+        const vacationRemaining = Math.max(0, vacationLimit - before.vacation);
+
+        const sickLeaveCountedDays = Math.min(inMonth.sick_leave, sickLeaveRemaining);
+        const vacationCountedDays = Math.min(inMonth.vacation, vacationRemaining);
+
+        summary[userIdKey].sickLeaveHours = sickLeaveCountedDays * 8;
+        summary[userIdKey].vacationHours = vacationCountedDays * 8;
+        summary[userIdKey].dayOffHours = inMonth.day_off * 8;
+      }
+    }
+
+    const absencesWhere: any = {
+      status: 'approved',
+      from: {
+        lte: monthEnd,
+      },
+      to: {
+        gte: monthStart,
+      },
+    };
+
+    if (reportUserIds.length > 0) {
+      absencesWhere.userId = { in: reportUserIds };
+    }
+
+    const absences = await prisma.absence.findMany({
+      where: absencesWhere,
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        from: 'desc',
+      },
+    });
+
+    const absencesForReport: AbsenceReportItem[] = absences.map((absence) => {
+      const workingDays = countWorkingDaysWithinRange(
+        new Date(absence.from),
+        new Date(absence.to),
+        monthStart,
+        monthEnd
+      );
+      return {
+        id: absence.id,
+        type: absence.type,
+        from: absence.from,
+        to: absence.to,
+        status: absence.status,
+        user: absence.user!,
+        workingDays,
+        hours: workingDays * 8,
+      };
+    });
+
     res.json({
-      workLogs,
+      workLogs: workLogsWithPastDue,
       summary: Object.values(summary),
+      absences: absencesForReport,
     });
   } catch (error) {
     console.error('Error fetching work log report:', error);
@@ -358,12 +592,8 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
 
     const updateData: any = {};
     if (data.date) {
-      const logDate = new Date(data.date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      logDate.setHours(0, 0, 0, 0);
       updateData.date = new Date(data.date);
-      updateData.isPastDue = logDate < today;
+      updateData.isPastDue = calculateIsPastDue(updateData.date);
     }
     if (data.start) updateData.start = new Date(data.start);
     if (data.end) updateData.end = new Date(data.end);

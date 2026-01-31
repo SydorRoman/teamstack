@@ -33,6 +33,85 @@
   transition: border-color 0.2s;
 }
 
+.absence-form input[type="file"] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: white;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #7f8c8d;
+}
+
+.file-list {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.file-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-remove-button {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #f8f9fa;
+  color: #4b5563;
+  font-size: 12px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.file-remove-button:hover {
+  background: #eef1f4;
+}
+
+.file-name {
+  font-size: 13px;
+  color: #2c3e50;
+  word-break: break-all;
+}
+
+.file-download-button {
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #f8f9fa;
+  color: #4b5563;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.file-download-button:hover {
+  background: #eef1f4;
+}
+
+.file-delete-button {
+  padding: 4px 8px;
+  border: 1px solid #f5c6b8;
+  border-radius: 4px;
+  background: #fde8e1;
+  color: #8e2f1c;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.file-delete-button:hover {
+  background: #f7d6ca;
+}
+
 .absence-form select:focus {
   outline: none;
   border-color: #3498db;

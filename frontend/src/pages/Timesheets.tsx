@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { WorkLogForm, WorkLogFormData } from '../components/WorkLogForm';
+import { AbsenceForm, AbsenceFormData } from './AbsenceForm';
 import { BookingBar } from '../components/BookingBar';
 import { useAuth } from '../contexts/AuthContext';
 import './Timesheets.css';
@@ -31,6 +32,7 @@ interface Absence {
   from: string;
   to: string;
   status: 'pending' | 'approved' | 'rejected';
+  files?: { id: string; originalName: string }[];
 }
 
 export default function Timesheets() {
@@ -40,8 +42,12 @@ export default function Timesheets() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showAbsenceModal, setShowAbsenceModal] = useState(false);
   const [editingLog, setEditingLog] = useState<WorkLog | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedAbsence, setSelectedAbsence] = useState<Absence | null>(null);
+  const [initialAbsenceValues, setInitialAbsenceValues] = useState<Partial<AbsenceFormData> | undefined>(undefined);
+  const [canDeleteAbsenceFiles, setCanDeleteAbsenceFiles] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [loading, setLoading] = useState(true);
@@ -111,6 +117,47 @@ export default function Timesheets() {
     }
   };
 
+  const handleUploadAbsenceFiles = async (data: AbsenceFormData) => {
+    if (!selectedAbsence) {
+      return;
+    }
+
+    if (selectedAbsence.type !== 'sick_leave') {
+      alert('Files can only be added to Sick Leave absences.');
+      return;
+    }
+
+    if (!data.files || data.files.length === 0) {
+      alert('Please attach at least one file.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const formData = new FormData();
+      data.files.forEach((file) => {
+        formData.append('files', file);
+      });
+
+      await axios.post(`/api/absences/${selectedAbsence.id}/files`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      setShowAbsenceModal(false);
+      setSelectedAbsence(null);
+      setInitialAbsenceValues(undefined);
+      setCanDeleteAbsenceFiles(false);
+      fetchAbsences();
+    } catch (error: any) {
+      console.error('Error uploading absence files:', error);
+      alert(error.response?.data?.error || 'Failed to upload files');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
 
   const calculateHours = (log: WorkLog): number => {
     const start = new Date(log.start);
@@ -142,6 +189,29 @@ export default function Timesheets() {
       const toStr = format(to, 'yyyy-MM-dd');
       return dateStr >= fromStr && dateStr <= toStr;
     });
+  };
+
+  const handleAbsenceClick = (absence: Absence) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const absenceStart = new Date(absence.from);
+    absenceStart.setHours(0, 0, 0, 0);
+    const canDeleteFiles = absenceStart >= today && absence.status !== 'approved';
+
+    setSelectedAbsence(absence);
+    setInitialAbsenceValues({
+      type: absence.type,
+      dateRange: {
+        from: new Date(absence.from).toISOString(),
+        to: new Date(absence.to).toISOString(),
+      },
+      existingFiles: absence.files?.map((file) => ({
+        id: file.id,
+        originalName: file.originalName,
+      })),
+    });
+    setCanDeleteAbsenceFiles(canDeleteFiles);
+    setShowAbsenceModal(true);
   };
 
   const handleDayClick = (date: Date) => {
@@ -261,6 +331,10 @@ export default function Timesheets() {
                             userId={user?.id || ''}
                             type={absence.type}
                             compact={true}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleAbsenceClick(absence);
+                            }}
                           />
                         ))}
                       </div>
@@ -389,6 +463,33 @@ export default function Timesheets() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showAbsenceModal && (
+        <div className="modal-overlay" onClick={() => {
+          setShowAbsenceModal(false);
+          setSelectedAbsence(null);
+          setInitialAbsenceValues(undefined);
+          setCanDeleteAbsenceFiles(false);
+        }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>New Absence</h2>
+            <AbsenceForm
+              onSubmit={handleUploadAbsenceFiles}
+              onCancel={() => {
+                setShowAbsenceModal(false);
+                setSelectedAbsence(null);
+                setInitialAbsenceValues(undefined);
+                setCanDeleteAbsenceFiles(false);
+              }}
+              initialValues={initialAbsenceValues}
+              loading={isSaving}
+              disableType={Boolean(selectedAbsence)}
+              disableDateRange={Boolean(selectedAbsence)}
+              canDeleteExistingFiles={canDeleteAbsenceFiles}
+            />
           </div>
         </div>
       )}

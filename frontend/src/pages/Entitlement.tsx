@@ -9,6 +9,8 @@ interface VacationEntitlement {
   futureAccrue: number;
   pendingForApproval: number;
   approved: number;
+  nextAccrueDate: string | null;
+  nextAccrueAmount: number;
 }
 
 interface SickLeaveEntitlement {
@@ -17,6 +19,8 @@ interface SickLeaveEntitlement {
   futureAccrue: number;
   pendingForApproval: number;
   approved: number;
+  remainingWithCertificate: number;
+  remainingWithoutCertificate: number;
 }
 
 interface DayOffEntitlement {
@@ -153,24 +157,48 @@ export default function Entitlement() {
 
         <div className="entitlement-details">
           <div className="detail-item">
-            <span className="detail-label">Currently Allowed:</span>
+            <span className="detail-label">
+              {entitlement.type === 'sick_leave'
+                ? 'Available w/ Certificate:'
+                : 'Currently Allowed:'}
+            </span>
             <span className="detail-value">
-              {typeof entitlement.currentlyAllowed === 'number'
-                ? `${entitlement.currentlyAllowed.toFixed(2)} Days`
-                : entitlement.currentlyAllowed}
+              {entitlement.type === 'sick_leave'
+                ? `${entitlement.remainingWithCertificate.toFixed(2)} Days`
+                : typeof entitlement.currentlyAllowed === 'number'
+                  ? `${entitlement.currentlyAllowed.toFixed(2)} Days`
+                  : entitlement.currentlyAllowed}
             </span>
           </div>
 
           {isLimited && (
             <>
               <div className="detail-item">
-                <span className="detail-label">Future Accrue:</span>
+                <span className="detail-label">
+                  {entitlement.type === 'sick_leave'
+                    ? 'Available w/o Certificate:'
+                    : 'Future Accrue:'}
+                </span>
                 <span className="detail-value">
-                  {typeof entitlement.futureAccrue === 'number'
-                    ? `${entitlement.futureAccrue.toFixed(2)} Days`
-                    : '-'}
+                  {entitlement.type === 'sick_leave'
+                    ? `${entitlement.remainingWithoutCertificate.toFixed(2)} Days`
+                    : typeof entitlement.futureAccrue === 'number'
+                      ? `${entitlement.futureAccrue.toFixed(2)} Days`
+                      : '-'}
                 </span>
               </div>
+              {entitlement.type === 'vacation' && (
+                <>
+                  <div className="detail-item">
+                    <span className="detail-label">Next accrual:</span>
+                    <span className="detail-value">
+                      {entitlement.nextAccrueDate
+                        ? `${format(new Date(entitlement.nextAccrueDate), 'MMM dd, yyyy')} (+${entitlement.nextAccrueAmount.toFixed(2)} Days)`
+                        : '—'}
+                    </span>
+                  </div>
+                </>
+              )}
               <div className="detail-item">
                 <span className="detail-label">Pending For Approval:</span>
                 <span className="detail-value">

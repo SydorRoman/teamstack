@@ -10,6 +10,7 @@ import Timesheets from './pages/Timesheets';
 import Reports from './pages/Reports';
 import Projects from './pages/Projects';
 import Technologies from './pages/Technologies';
+import Settings from './pages/Settings';
 import Layout from './components/Layout';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -63,7 +64,14 @@ function App() {
             <Route path="employees/:id" element={<EmployeeProfile />} />
             <Route path="entitlement" element={<Entitlement />} />
             <Route path="timesheets" element={<Timesheets />} />
-            <Route path="technologies" element={<Technologies />} />
+            <Route
+              path="technologies"
+              element={
+                <AdminRoute>
+                  <Technologies />
+                </AdminRoute>
+              }
+            />
             <Route
               path="admin"
               element={
@@ -85,6 +93,14 @@ function App() {
               element={
                 <AdminRoute>
                   <Projects />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="settings"
+              element={
+                <AdminRoute>
+                  <Settings />
                 </AdminRoute>
               }
             />
