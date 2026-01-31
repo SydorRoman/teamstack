@@ -62,6 +62,8 @@ interface VacationEntitlement extends EntitlementBreakdown {
 
 interface SickLeaveEntitlement extends EntitlementBreakdown {
   type: 'sick_leave';
+  remainingWithCertificate: number;
+  remainingWithoutCertificate: number;
 }
 
 interface DayOffEntitlement {
@@ -337,6 +339,8 @@ export async function calculateSickLeaveEntitlement(
       futureAccrue: 0,
       pendingForApproval: 0,
       approved: 0,
+      remainingWithCertificate: settings.sickLeaveWithCertificateLimit,
+      remainingWithoutCertificate: settings.sickLeaveWithoutCertificateLimit,
     };
   }
 
@@ -352,44 +356,64 @@ export async function calculateSickLeaveEntitlement(
   // Calculate total accrued this year
   const accruedThisYear = monthsAccrued * SICK_LEAVE_DAYS_PER_MONTH;
 
-  // Get approved sick leave absences for current year (working days only)
-  const approvedAbsences = await prisma.absence.findMany({
+  const sickLeaveAbsences = (await prisma.absence.findMany({
     where: {
       userId,
       type: 'sick_leave',
-      status: 'approved',
+      status: {
+        in: ['approved', 'pending'],
+      },
       from: {
         gte: yearStart,
       },
     },
-  });
+    include: {
+      files: {
+        select: {
+          id: true,
+        },
+      },
+    },
+  } as any)) as unknown as Array<{
+    from: Date;
+    to: Date;
+    status: 'approved' | 'pending';
+    files: Array<{ id: string }>;
+  }>;
 
   let approvedWorkingDays = 0;
-  for (const absence of approvedAbsences) {
-    approvedWorkingDays += countWorkingDays(new Date(absence.from), new Date(absence.to));
-  }
-
-  // Get pending sick leave absences
-  const pendingAbsences = await prisma.absence.findMany({
-    where: {
-      userId,
-      type: 'sick_leave',
-      status: 'pending',
-      from: {
-        gte: yearStart,
-      },
-    },
-  });
-
   let pendingWorkingDays = 0;
-  for (const absence of pendingAbsences) {
-    pendingWorkingDays += countWorkingDays(new Date(absence.from), new Date(absence.to));
+  let usedWithCertificate = 0;
+  let usedWithoutCertificate = 0;
+  for (const absence of sickLeaveAbsences) {
+    const days = countWorkingDays(new Date(absence.from), new Date(absence.to));
+    const hasCertificate = absence.files.length > 0;
+    if (absence.status === 'approved') {
+      approvedWorkingDays += days;
+    } else {
+      pendingWorkingDays += days;
+    }
+
+    if (hasCertificate) {
+      usedWithCertificate += days;
+    } else {
+      usedWithoutCertificate += days;
+    }
   }
 
   // Currently allowed = accrued - approved - pending
   const currentlyAllowed = Math.max(0, accruedThisYear - approvedWorkingDays - pendingWorkingDays);
 
   const futureAccrue = 0;
+  const settings = await getSettings();
+  const remainingWithCertificate = Math.max(
+    0,
+    settings.sickLeaveWithCertificateLimit - usedWithCertificate
+  );
+  const remainingWithoutCertificate = Math.max(
+    0,
+    settings.sickLeaveWithoutCertificateLimit - usedWithoutCertificate
+  );
 
   return {
     type: 'sick_leave',
@@ -397,6 +421,8 @@ export async function calculateSickLeaveEntitlement(
     futureAccrue: Math.round(futureAccrue * 100) / 100,
     pendingForApproval: Math.round(pendingWorkingDays * 100) / 100,
     approved: Math.round(approvedWorkingDays * 100) / 100,
+    remainingWithCertificate: Math.round(remainingWithCertificate * 100) / 100,
+    remainingWithoutCertificate: Math.round(remainingWithoutCertificate * 100) / 100,
   };
 }
 
