@@ -223,6 +223,19 @@
   background-color: #fff6d8;
 }
 
+.work-logs-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: #2c3e50;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;

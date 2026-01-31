@@ -70,6 +70,7 @@ export default function Reports() {
   const [summary, setSummary] = useState<SummaryItem[]>([]);
   const [selectedWorkLog, setSelectedWorkLog] = useState<WorkLog | null>(null);
   const [showNoteModal, setShowNoteModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -108,6 +109,7 @@ export default function Reports() {
   }, []);
 
   useEffect(() => {
+    setCurrentPage(1);
     fetchReport();
   }, [currentMonth, selectedUserId, selectedProjectId]);
 
@@ -293,6 +295,27 @@ export default function Reports() {
         return type;
     }
   };
+
+  const WORK_LOGS_PAGE_SIZE = 25;
+  const combinedRows = [
+    ...workLogs.map((log) => ({
+      key: `worklog-${log.id}`,
+      kind: 'worklog' as const,
+      sortTime: new Date(log.date).getTime(),
+      log,
+    })),
+    ...absences.map((absence) => ({
+      key: `absence-${absence.id}`,
+      kind: 'absence' as const,
+      sortTime: new Date(absence.from).getTime(),
+      absence,
+    })),
+  ].sort((a, b) => b.sortTime - a.sortTime);
+  const totalPages = Math.max(1, Math.ceil(combinedRows.length / WORK_LOGS_PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * WORK_LOGS_PAGE_SIZE;
+  const pageEnd = pageStart + WORK_LOGS_PAGE_SIZE;
+  const paginatedRows = combinedRows.slice(pageStart, pageEnd);
 
   const filteredEmployees = employeeSearch
     ? users.filter(user => {
@@ -512,22 +535,7 @@ export default function Reports() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[
-                      ...workLogs.map((log) => ({
-                        key: `worklog-${log.id}`,
-                        kind: 'worklog' as const,
-                        sortTime: new Date(log.date).getTime(),
-                        log,
-                      })),
-                      ...absences.map((absence) => ({
-                        key: `absence-${absence.id}`,
-                        kind: 'absence' as const,
-                        sortTime: new Date(absence.from).getTime(),
-                        absence,
-                      })),
-                    ]
-                      .sort((a, b) => b.sortTime - a.sortTime)
-                      .map((row) => {
+                    {paginatedRows.map((row) => {
                         if (row.kind === 'worklog') {
                           const hours = calculateHours(row.log);
                           return (
@@ -583,6 +591,27 @@ export default function Reports() {
                       })}
                   </tbody>
                 </table>
+                {combinedRows.length > WORK_LOGS_PAGE_SIZE && (
+                  <div className="work-logs-pagination">
+                    <button
+                      className="btn-secondary"
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={safePage === 1}
+                    >
+                      Prev
+                    </button>
+                    <span className="pagination-info">
+                      Page {safePage} of {totalPages}
+                    </span>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      disabled={safePage === totalPages}
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
