@@ -10,7 +10,7 @@ A full-stack web application for managing employee absences, built with React, N
 - **Employees Page**: Searchable and filterable employee directory
 - **Employee Profile**: Detailed employee information
 - **Entitlement Page**: View vacation, sick leave, and day off entitlements
-- **Admin Panel**: Approve/reject absence requests and manage users (StellarTech)
+- **Admin Panel**: Approve/reject absence requests and manage users (Stellars Tech)
 
 ## Tech Stack
 

@@ -258,7 +258,7 @@ export default function Admin() {
   return (
     <div className="admin-page">
       <div className="admin-header">
-        <h1>Admin Panel - StellarTech</h1>
+        <h1>Admin Panel - Stellars Tech</h1>
         <div className="admin-actions">
           <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
             Create User

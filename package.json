@@ -1,7 +1,7 @@
 {
   "name": "teamstack",
   "version": "1.0.0",
-  "description": "StellarTech - Full-stack admin panel application",
+  "description": "Stellars Tech - Full-stack admin panel application",
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && npm run dev",
