@@ -48,6 +48,7 @@ export default function Home() {
   const [isCreating, setIsCreating] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProjects();
@@ -105,16 +106,17 @@ export default function Home() {
       return;
     }
 
+    setFormError(null);
     setIsCreating(true);
     try {
       if (selectedAbsence) {
         if (selectedAbsence.type !== 'sick_leave') {
-          alert('Files can only be added to Sick Leave absences.');
+          setFormError('Files can only be added to Sick Leave absences.');
           return;
         }
 
         if (!data.files || data.files.length === 0) {
-          alert('Please attach at least one file.');
+          setFormError('Please attach at least one file.');
           return;
         }
 
@@ -158,10 +160,11 @@ export default function Home() {
       setInitialAbsenceValues(undefined);
       setSelectedAbsence(null);
       setCanDeleteAbsenceFiles(false);
+      setFormError(null);
       fetchAbsences();
     } catch (error: any) {
       console.error('Error creating absence:', error);
-      alert(error.response?.data?.error || 'Failed to create absence');
+      setFormError(error.response?.data?.error || 'Failed to create absence');
     } finally {
       setIsCreating(false);
     }
@@ -201,6 +204,7 @@ export default function Home() {
     });
     setSelectedAbsence(null);
     setCanDeleteAbsenceFiles(false);
+    setFormError(null);
     setShowModal(true);
   };
 
@@ -224,6 +228,7 @@ export default function Home() {
       })),
     });
     setCanDeleteAbsenceFiles(canDeleteFiles);
+    setFormError(null);
     setShowModal(true);
   };
 
@@ -231,6 +236,7 @@ export default function Home() {
     setInitialAbsenceValues(undefined);
     setSelectedAbsence(null);
     setCanDeleteAbsenceFiles(false);
+    setFormError(null);
     setShowModal(true);
   };
 
@@ -386,6 +392,7 @@ export default function Home() {
         <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>{selectedAbsence ? 'Add Sick Leave Files' : 'New Absence'}</h2>
+            {formError && <div className="form-validation">{formError}</div>}
             <AbsenceForm
               onSubmit={handleCreateAbsence}
               onCancel={() => {
@@ -393,6 +400,7 @@ export default function Home() {
                 setInitialAbsenceValues(undefined);
                 setSelectedAbsence(null);
                 setCanDeleteAbsenceFiles(false);
+                setFormError(null);
               }}
               initialValues={initialAbsenceValues}
               loading={isCreating}
