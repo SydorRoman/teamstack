@@ -230,7 +230,7 @@ export default function Projects() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-overlay">
           <div className="modal-content project-modal" onClick={(e) => e.stopPropagation()}>
             <h2>{editingProject ? 'Edit Project' : 'Create Project'}</h2>
             <form onSubmit={handleSubmit}>

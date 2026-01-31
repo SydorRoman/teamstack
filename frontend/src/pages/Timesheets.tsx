@@ -468,14 +468,9 @@ export default function Timesheets() {
       )}
 
       {showAbsenceModal && (
-        <div className="modal-overlay" onClick={() => {
-          setShowAbsenceModal(false);
-          setSelectedAbsence(null);
-          setInitialAbsenceValues(undefined);
-          setCanDeleteAbsenceFiles(false);
-        }}>
+        <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>New Absence</h2>
+            <h2>Upload Sick Leave Files</h2>
             <AbsenceForm
               onSubmit={handleUploadAbsenceFiles}
               onCancel={() => {
@@ -489,17 +484,15 @@ export default function Timesheets() {
               disableType={Boolean(selectedAbsence)}
               disableDateRange={Boolean(selectedAbsence)}
               canDeleteExistingFiles={canDeleteAbsenceFiles}
+              submitLabel="Upload Files"
+              submittingLabel="Uploading..."
             />
           </div>
         </div>
       )}
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => {
-          setShowModal(false);
-          setEditingLog(null);
-          setSelectedDate(null);
-        }}>
+        <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>{editingLog ? 'Edit Work Log' : 'Log Work Time'}</h2>
             <WorkLogForm

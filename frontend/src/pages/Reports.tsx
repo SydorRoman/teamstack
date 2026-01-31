@@ -316,6 +316,14 @@ export default function Reports() {
   const pageStart = (safePage - 1) * WORK_LOGS_PAGE_SIZE;
   const pageEnd = pageStart + WORK_LOGS_PAGE_SIZE;
   const paginatedRows = combinedRows.slice(pageStart, pageEnd);
+  const hasExportableData =
+    workLogs.length > 0 ||
+    absences.some(
+      (absence) =>
+        absence.type === 'sick_leave' ||
+        absence.type === 'vacation' ||
+        absence.type === 'day_off'
+    );
 
   const filteredEmployees = employeeSearch
     ? users.filter(user => {
@@ -362,7 +370,7 @@ export default function Reports() {
     <div className="reports-page">
       <div className="page-header">
         <h1>Work Reports</h1>
-        <button onClick={exportToCSV} className="btn-primary" disabled={workLogs.length === 0}>
+        <button onClick={exportToCSV} className="btn-primary" disabled={!hasExportableData}>
           Export CSV
         </button>
       </div>
@@ -409,18 +417,21 @@ export default function Reports() {
               )}
             </div>
             {showEmployeeDropdown && (
-              <div className="dropdown-list">
+              <div className="dropdown-list" role="listbox" aria-label="Employee options">
                 {filteredEmployees.length === 0 ? (
                   <div className="dropdown-item no-results">No employees found</div>
                 ) : (
                   filteredEmployees.map((user) => (
-                    <div
+                    <button
+                      type="button"
                       key={user.id}
                       className={`dropdown-item ${selectedUserId === user.id ? 'selected' : ''}`}
                       onClick={() => handleEmployeeSelect(user.id)}
+                      role="option"
+                      aria-selected={selectedUserId === user.id}
                     >
                       {user.firstName} {user.lastName} ({user.email})
-                    </div>
+                    </button>
                   ))
                 )}
               </div>
@@ -459,18 +470,21 @@ export default function Reports() {
               )}
             </div>
             {showProjectDropdown && (
-              <div className="dropdown-list">
+              <div className="dropdown-list" role="listbox" aria-label="Project options">
                 {filteredProjects.length === 0 ? (
                   <div className="dropdown-item no-results">No projects found</div>
                 ) : (
                   filteredProjects.map((project) => (
-                    <div
+                    <button
+                      type="button"
                       key={project.id}
                       className={`dropdown-item ${selectedProjectId === project.id ? 'selected' : ''}`}
                       onClick={() => handleProjectSelect(project.id)}
+                      role="option"
+                      aria-selected={selectedProjectId === project.id}
                     >
                       {project.name}
-                    </div>
+                    </button>
                   ))
                 )}
               </div>

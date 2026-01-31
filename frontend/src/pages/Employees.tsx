@@ -27,6 +27,7 @@ export default function Employees() {
   const [allTechnologies, setAllTechnologies] = useState<Technology[]>([]);
   const [selectedTechnologyIds, setSelectedTechnologyIds] = useState<string[]>([]);
   const [technologySearch, setTechnologySearch] = useState('');
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -43,6 +44,7 @@ export default function Employees() {
 
   const fetchEmployees = async () => {
     try {
+      setLoading(true);
       const params: any = {};
       if (selectedTechnologyIds.length > 0) {
         params.technologyIds = selectedTechnologyIds;
@@ -62,6 +64,8 @@ export default function Employees() {
       setPositions(uniquePositions);
     } catch (error) {
       console.error('Error fetching employees:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -233,47 +237,60 @@ export default function Employees() {
         </aside>
 
         <section className="employees-content">
-          <div className="table-container">
-            <table className="employees-table">
-              <thead>
-                <tr>
-                  <th>Photo</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Position</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredEmployees.length === 0 ? (
+          {loading ? (
+            <div className="loading">Loading...</div>
+          ) : (
+            <div className="table-container">
+              <table className="employees-table">
+                <thead>
                   <tr>
-                    <td colSpan={4} className="no-data">
-                      No employees found
-                    </td>
+                    <th>Photo</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Position</th>
                   </tr>
-                ) : (
-                  filteredEmployees.map((employee) => (
-                    <tr
-                      key={employee.id}
-                      onClick={() => navigate(`/employees/${employee.id}`)}
-                      className="table-row-clickable"
-                    >
-                      <td>
-                        <div className="avatar">
-                          {employee.firstName[0]}
-                          {employee.lastName[0]}
-                        </div>
+                </thead>
+                <tbody>
+                  {filteredEmployees.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="no-data">
+                        No employees found
                       </td>
-                      <td>
-                        {employee.firstName} {employee.lastName}
-                      </td>
-                      <td>{employee.email}</td>
-                      <td>{employee.position?.name || '-'}</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    filteredEmployees.map((employee) => (
+                      <tr
+                        key={employee.id}
+                        onClick={() => navigate(`/employees/${employee.id}`)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            navigate(`/employees/${employee.id}`);
+                          }
+                        }}
+                        className="table-row-clickable"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`View profile for ${employee.firstName} ${employee.lastName}`}
+                      >
+                        <td>
+                          <div className="avatar">
+                            {employee.firstName[0]}
+                            {employee.lastName[0]}
+                          </div>
+                        </td>
+                        <td>
+                          {employee.firstName} {employee.lastName}
+                        </td>
+                        <td>{employee.email}</td>
+                        <td>{employee.position?.name || '-'}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       </div>
     </div>

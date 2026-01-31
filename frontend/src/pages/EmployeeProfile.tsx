@@ -58,6 +58,12 @@ export default function EmployeeProfile() {
     country: '',
   });
 
+  const normalizeEmployee = (data: Employee) => ({
+    ...data,
+    projects: data.projects ?? [],
+    technologies: data.technologies ?? [],
+  });
+
   useEffect(() => {
     if (id) {
       fetchEmployee();
@@ -84,14 +90,14 @@ export default function EmployeeProfile() {
         city: employee.city || '',
         country: employee.country || '',
       });
-      setSelectedTechnologyIds(employee.technologies.map((tech) => tech.id));
+      setSelectedTechnologyIds((employee.technologies ?? []).map((tech) => tech.id));
     }
   }, [employee, isEditing]);
 
   const fetchEmployee = async () => {
     try {
       const response = await axios.get(`/api/employees/${id}`);
-      setEmployee(response.data);
+      setEmployee(normalizeEmployee(response.data));
     } catch (error) {
       console.error('Error fetching employee:', error);
     } finally {
@@ -119,12 +125,21 @@ export default function EmployeeProfile() {
     if (!id) return;
     setIsSaving(true);
     try {
-      const payload: typeof formData = { ...formData };
-      if (!user?.isAdmin) {
-        delete (payload as typeof formData & { hireDate?: string }).hireDate;
-      }
+      const basePayload = { ...formData };
+      const payload = user?.isAdmin
+        ? basePayload
+        : (({ hireDate, ...rest }) => rest)(basePayload);
       const response = await axios.put(`/api/employees/${id}`, payload);
-      setEmployee(response.data);
+      setEmployee((prev) => {
+        const base = prev ?? (response.data as Employee);
+        return normalizeEmployee({
+          ...base,
+          ...response.data,
+          projects: response.data.projects ?? base.projects ?? [],
+          technologies: response.data.technologies ?? base.technologies ?? [],
+          position: response.data.position ?? base.position ?? null,
+        });
+      });
       setIsEditing(false);
       if (user?.id === id) {
         updateUser({

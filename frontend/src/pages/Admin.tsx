@@ -39,6 +39,7 @@ export default function Admin() {
   const [newPositionName, setNewPositionName] = useState('');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
   const [newUser, setNewUser] = useState({
     firstName: '',
     lastName: '',
@@ -58,10 +59,17 @@ export default function Admin() {
   const [users, setUsers] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchPendingRequests();
-    fetchProjects();
-    fetchUsers();
-    fetchPositions();
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([
+        fetchPendingRequests(),
+        fetchProjects(),
+        fetchUsers(),
+        fetchPositions(),
+      ]);
+      setLoading(false);
+    };
+    void loadData();
   }, []);
 
   const fetchPendingRequests = async () => {
@@ -255,6 +263,10 @@ export default function Admin() {
     }
   };
 
+  if (loading) {
+    return <div className="loading">Loading...</div>;
+  }
+
   return (
     <div className="admin-page">
       <div className="admin-header">
@@ -357,10 +369,7 @@ export default function Admin() {
       </div>
 
       {showCreateModal && (
-        <div className="modal-overlay" onClick={() => {
-          setShowCreateModal(false);
-          setEditingUser(null);
-        }}>
+        <div className="modal-overlay">
           <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
             <h2>{editingUser ? 'Edit User' : 'Create User'}</h2>
             <div className="form-grid">
@@ -571,7 +580,7 @@ export default function Admin() {
       )}
 
       {showPositionModal && (
-        <div className="modal-overlay" onClick={() => setShowPositionModal(false)}>
+        <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>Create New Position</h2>
             <div className="form-group">
