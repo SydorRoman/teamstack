@@ -63,13 +63,24 @@ export default function Employees() {
     let filtered = [...employees];
 
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (emp) =>
-          emp.firstName.toLowerCase().includes(query) ||
-          emp.lastName.toLowerCase().includes(query) ||
-          emp.email.toLowerCase().includes(query)
-      );
+      const terms = searchQuery
+        .toLowerCase()
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+      if (terms.length > 0) {
+        filtered = filtered.filter((emp) => {
+          const firstName = emp.firstName.toLowerCase();
+          const lastName = emp.lastName.toLowerCase();
+          const email = emp.email.toLowerCase();
+          return terms.every(
+            (term) =>
+              firstName.includes(term) ||
+              lastName.includes(term) ||
+              email.includes(term)
+          );
+        });
+      }
     }
 
     if (positionFilter) {

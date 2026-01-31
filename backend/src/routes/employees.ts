@@ -62,11 +62,22 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
     let where: any = {};
 
     if (search) {
-      where.OR = [
-        { firstName: { contains: search as string, mode: 'insensitive' } },
-        { lastName: { contains: search as string, mode: 'insensitive' } },
-        { email: { contains: search as string, mode: 'insensitive' } },
-      ];
+      const terms = String(search)
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+      if (terms.length > 0) {
+        where.AND = [
+          ...(where.AND || []),
+          ...terms.map((term) => ({
+            OR: [
+              { firstName: { contains: term, mode: 'insensitive' } },
+              { lastName: { contains: term, mode: 'insensitive' } },
+              { email: { contains: term, mode: 'insensitive' } },
+            ],
+          })),
+        ];
+      }
     }
 
     if (positionId) {
