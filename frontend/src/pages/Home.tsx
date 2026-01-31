@@ -383,9 +383,9 @@ export default function Home() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>New Absence</h2>
+            <h2>{selectedAbsence ? 'Add Sick Leave Files' : 'New Absence'}</h2>
             <AbsenceForm
               onSubmit={handleCreateAbsence}
               onCancel={() => {
@@ -399,6 +399,8 @@ export default function Home() {
               disableType={Boolean(selectedAbsence)}
               disableDateRange={Boolean(selectedAbsence)}
               canDeleteExistingFiles={canDeleteAbsenceFiles}
+              submitLabel={selectedAbsence ? 'Upload Files' : 'Create'}
+              submittingLabel={selectedAbsence ? 'Uploading...' : 'Creating...'}
             />
           </div>
         </div>

@@ -22,6 +22,8 @@ interface AbsenceFormProps {
   disableType?: boolean;
   disableDateRange?: boolean;
   canDeleteExistingFiles?: boolean;
+  submitLabel?: string;
+  submittingLabel?: string;
 }
 
 export function AbsenceForm({
@@ -32,6 +34,8 @@ export function AbsenceForm({
   disableType = false,
   disableDateRange = false,
   canDeleteExistingFiles = false,
+  submitLabel = 'Create',
+  submittingLabel = 'Creating...',
 }: AbsenceFormProps) {
   const methods = useForm<AbsenceFormData>({
     defaultValues: {
@@ -227,7 +231,7 @@ export function AbsenceForm({
             className="btn-primary"
             disabled={loading || !hasValidDateRange}
           >
-            {loading ? 'Creating...' : 'Create'}
+            {loading ? submittingLabel : submitLabel}
           </button>
         </div>
       </form>

@@ -133,7 +133,7 @@ export default function Technologies() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>{editingTech ? 'Edit Technology' : 'Create Technology'}</h2>
             <form onSubmit={handleSubmit}>
