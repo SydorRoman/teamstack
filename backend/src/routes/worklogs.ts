@@ -92,7 +92,7 @@ const createWorkLogSchema = z
     date: z.string().datetime(),
     start: z.string().datetime(),
     end: z.string().datetime(),
-    projectId: z.string().uuid().optional(),
+    projectId: z.string().uuid(),
     note: z.string().optional(),
   })
   .refine(
@@ -124,7 +124,7 @@ const updateWorkLogSchema = z.object({
   date: z.string().datetime().optional(),
   start: z.string().datetime().optional(),
   end: z.string().datetime().optional(),
-  projectId: z.string().uuid().optional(),
+  projectId: z.string().uuid(),
   note: z.string().optional(),
 });
 
