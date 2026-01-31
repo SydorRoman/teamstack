@@ -33,6 +33,23 @@ interface SummaryItem {
   overtime: number;
   sickLeaveHours: number;
   vacationHours: number;
+  dayOffHours: number;
+}
+
+interface AbsenceItem {
+  id: string;
+  type: 'sick_leave' | 'day_off' | 'vacation' | 'work_from_home';
+  from: string;
+  to: string;
+  status: 'pending' | 'approved' | 'rejected';
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  workingDays: number;
+  hours: number;
 }
 
 interface Project {
@@ -49,6 +66,7 @@ interface User {
 
 export default function Reports() {
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
+  const [absences, setAbsences] = useState<AbsenceItem[]>([]);
   const [summary, setSummary] = useState<SummaryItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -102,6 +120,7 @@ export default function Reports() {
       const response = await axios.get(`/api/worklogs/report?${params}`);
       setWorkLogs(response.data.workLogs);
       setSummary(response.data.summary);
+      setAbsences(response.data.absences || []);
     } catch (error) {
       console.error('Error fetching report:', error);
     } finally {
@@ -129,17 +148,81 @@ export default function Reports() {
 
 
   const exportToCSV = () => {
-    const headers = ['Date', 'Employee', 'Hours', 'Project', 'Note'];
-    const rows = workLogs.map((log) => {
-      const hours = calculateHours(log);
-      return [
+    const headers = [
+      'Date',
+      'Employee',
+      'Hours',
+      'Sick Leave Hours',
+      'Vacation Hours',
+      'Day Off Hours',
+      'Project',
+      'Note',
+    ];
+    const sortedLogs = [...workLogs].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+    const workLogRows = sortedLogs.map((log) => ({
+      sortTime: new Date(log.date).getTime(),
+      row: [
         format(new Date(log.date), 'yyyy-MM-dd'),
         `${log.user.firstName} ${log.user.lastName}`,
-        hours.toFixed(2),
+        calculateHours(log).toFixed(2),
+        '0.00',
+        '0.00',
+        '0.00',
         log.project?.name || '',
         log.note || '',
-      ];
-    });
+      ],
+    }));
+
+    const absenceRows = absences
+      .filter((absence) =>
+        absence.type === 'sick_leave' || absence.type === 'vacation' || absence.type === 'day_off'
+      )
+      .map((absence) => {
+        const absenceFrom = new Date(absence.from);
+        const absenceTo = new Date(absence.to);
+        const dateLabel =
+          absenceFrom.toDateString() === absenceTo.toDateString()
+            ? format(absenceFrom, 'yyyy-MM-dd')
+            : `${format(absenceFrom, 'yyyy-MM-dd')} - ${format(absenceTo, 'yyyy-MM-dd')}`;
+        const sickLeaveHours = absence.type === 'sick_leave' ? absence.hours : 0;
+        const vacationHours = absence.type === 'vacation' ? absence.hours : 0;
+        const dayOffHours = absence.type === 'day_off' ? absence.hours : 0;
+        return {
+          sortTime: absenceFrom.getTime(),
+          row: [
+            dateLabel,
+            `${absence.user.firstName} ${absence.user.lastName}`,
+            '0.00',
+            sickLeaveHours.toFixed(2),
+            vacationHours.toFixed(2),
+            dayOffHours.toFixed(2),
+            getAbsenceLabel(absence.type),
+            '',
+          ],
+        };
+      });
+
+    const rows = [...workLogRows, ...absenceRows]
+      .sort((a, b) => a.sortTime - b.sortTime)
+      .map((item) => item.row);
+
+    const totalWorkHours = workLogs.reduce((sum, log) => sum + calculateHours(log), 0);
+    const totalSickLeaveHours = summary.reduce((sum, item) => sum + item.sickLeaveHours, 0);
+    const totalVacationHours = summary.reduce((sum, item) => sum + item.vacationHours, 0);
+    const totalDayOffHours = summary.reduce((sum, item) => sum + item.dayOffHours, 0);
+
+    rows.push([
+      'TOTAL',
+      '',
+      totalWorkHours.toFixed(2),
+      totalSickLeaveHours.toFixed(2),
+      totalVacationHours.toFixed(2),
+      totalDayOffHours.toFixed(2),
+      '',
+      '',
+    ]);
 
     const csvContent = [
       headers.join(','),
@@ -149,8 +232,18 @@ export default function Reports() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
+    const sanitizeFilePart = (value: string) =>
+      value.trim().replace(/[^a-zA-Z0-9-_]+/g, '_').replace(/_+/g, '_');
+    const userPart = getSelectedEmployeeName();
+    const projectPart = getSelectedProjectName();
+    const filenameParts = [
+      'worklogs',
+      format(currentMonth, 'yyyy-MM'),
+      userPart ? sanitizeFilePart(userPart) : '',
+      projectPart ? sanitizeFilePart(projectPart) : '',
+    ].filter(Boolean);
     link.setAttribute('href', url);
-    link.setAttribute('download', `worklogs-${format(currentMonth, 'yyyy-MM')}.csv`);
+    link.setAttribute('download', `${filenameParts.join('-')}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -182,6 +275,21 @@ export default function Reports() {
     if (!selectedProjectId) return '';
     const project = projects.find(p => p.id === selectedProjectId);
     return project ? project.name : '';
+  };
+
+  const getAbsenceLabel = (type: AbsenceItem['type']) => {
+    switch (type) {
+      case 'vacation':
+        return 'Vacation';
+      case 'sick_leave':
+        return 'Sick Leave';
+      case 'day_off':
+        return 'Day Off';
+      case 'work_from_home':
+        return 'Work from Home';
+      default:
+        return type;
+    }
   };
 
   const filteredEmployees = employeeSearch
@@ -388,7 +496,7 @@ export default function Reports() {
 
           <div className="work-logs-section">
             <h2>Work Logs</h2>
-            {workLogs.length === 0 ? (
+            {workLogs.length === 0 && absences.length === 0 ? (
               <p className="no-data">No work logs found</p>
             ) : (
               <div className="work-logs-table-container">
@@ -402,22 +510,68 @@ export default function Reports() {
                     </tr>
                   </thead>
                   <tbody>
-                    {workLogs.map((log) => {
-                      const hours = calculateHours(log);
-                      return (
-                        <tr key={log.id}>
-                          <td>
-                            {format(new Date(log.date), 'MMM dd, yyyy')}
-                            {log.isPastDue && <span className="past-due-indicator" title="Past Due">⚠️</span>}
-                          </td>
-                          <td>
-                            {log.user.firstName} {log.user.lastName}
-                          </td>
-                          <td>{hours.toFixed(2)}</td>
-                          <td>{log.project?.name || '-'}</td>
-                        </tr>
-                      );
-                    })}
+                    {[
+                      ...workLogs.map((log) => ({
+                        key: `worklog-${log.id}`,
+                        kind: 'worklog' as const,
+                        sortTime: new Date(log.date).getTime(),
+                        log,
+                      })),
+                      ...absences.map((absence) => ({
+                        key: `absence-${absence.id}`,
+                        kind: 'absence' as const,
+                        sortTime: new Date(absence.from).getTime(),
+                        absence,
+                      })),
+                    ]
+                      .sort((a, b) => b.sortTime - a.sortTime)
+                      .map((row) => {
+                        if (row.kind === 'worklog') {
+                          const hours = calculateHours(row.log);
+                          return (
+                            <tr key={row.key}>
+                              <td>
+                                {format(new Date(row.log.date), 'MMM dd, yyyy')}
+                                {row.log.isPastDue && (
+                                  <span className="past-due-indicator" title="Past Due">
+                                    ⚠️
+                                  </span>
+                                )}
+                              </td>
+                              <td>
+                                {row.log.user.firstName} {row.log.user.lastName}
+                              </td>
+                              <td>{hours.toFixed(2)}</td>
+                              <td>{row.log.project?.name || '-'}</td>
+                            </tr>
+                          );
+                        }
+
+                        const absenceFrom = new Date(row.absence.from);
+                        const absenceTo = new Date(row.absence.to);
+                        const dateLabel =
+                          absenceFrom.toDateString() === absenceTo.toDateString()
+                            ? format(absenceFrom, 'MMM dd, yyyy')
+                            : `${format(absenceFrom, 'MMM dd, yyyy')} - ${format(absenceTo, 'MMM dd, yyyy')}`;
+
+                        const rowClassName =
+                          row.absence.type === 'sick_leave'
+                            ? 'worklog-absence worklog-absence-sick'
+                            : row.absence.type === 'vacation'
+                              ? 'worklog-absence worklog-absence-vacation'
+                              : 'worklog-absence';
+
+                        return (
+                          <tr key={row.key} className={rowClassName}>
+                            <td>{dateLabel}</td>
+                            <td>
+                              {row.absence.user.firstName} {row.absence.user.lastName}
+                            </td>
+                            <td>{row.absence.hours.toFixed(2)}</td>
+                            <td>{getAbsenceLabel(row.absence.type)}</td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>

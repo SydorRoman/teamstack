@@ -358,21 +358,6 @@ export default function EmployeeProfile() {
         </div>
 
         <div className="profile-section">
-          <h2>Projects</h2>
-          {employee.projects.length === 0 ? (
-            <p className="no-projects">No projects assigned</p>
-          ) : (
-            <div className="projects-list">
-              {employee.projects.map((project) => (
-                <div key={project.id} className="project-tag">
-                  {project.name}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="profile-section">
           <div className="profile-section-header">
             <h2>Technologies</h2>
           </div>
@@ -403,6 +388,21 @@ export default function EmployeeProfile() {
               >
                 {isTechSaving ? 'Saving...' : 'Save'}
               </button>
+            </div>
+          )}
+        </div>
+
+        <div className="profile-section">
+          <h2>Projects</h2>
+          {employee.projects.length === 0 ? (
+            <p className="no-projects">No projects assigned</p>
+          ) : (
+            <div className="projects-list">
+              {employee.projects.map((project) => (
+                <div key={project.id} className="project-tag">
+                  {project.name}
+                </div>
+              ))}
             </div>
           )}
         </div>

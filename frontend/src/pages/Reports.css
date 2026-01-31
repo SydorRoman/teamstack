@@ -203,6 +203,18 @@
   background-color: #f9f9f9;
 }
 
+.work-logs-table tbody tr.worklog-absence {
+  background-color: #f5f6f7;
+}
+
+.work-logs-table tbody tr.worklog-absence-sick {
+  background-color: #e7f6ec;
+}
+
+.work-logs-table tbody tr.worklog-absence-vacation {
+  background-color: #fff6d8;
+}
+
 .status-badge {
   padding: 4px 12px;
   border-radius: 12px;
