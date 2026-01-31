@@ -326,6 +326,7 @@ router.patch('/requests/:id/reject', async (req, res) => {
 router.get('/users', async (req, res) => {
   try {
     const users = await prisma.user.findMany({
+      where: { deletedAt: null },
       select: {
         id: true,
         firstName: true,
@@ -483,6 +484,14 @@ router.put('/users/:id', async (req, res) => {
 
     const updateData: any = { ...userData };
 
+    const existingUser = await prisma.user.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     if (data.birthDate && data.birthDate.trim() !== '') {
       // Parse date string (YYYY-MM-DD) as UTC midnight to avoid timezone issues
       const dateStr = data.birthDate.includes('T') 
@@ -546,8 +555,22 @@ router.delete('/users/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    await prisma.user.delete({
+    const user = await prisma.user.findUnique({
       where: { id },
+      select: { isAdmin: true, deletedAt: true },
+    });
+
+    if (!user || user.deletedAt) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.isAdmin) {
+      return res.status(400).json({ error: 'Admin users cannot be deleted' });
+    }
+
+    await prisma.user.update({
+      where: { id },
+      data: { deletedAt: new Date() },
     });
 
     res.json({ message: 'User deleted successfully' });

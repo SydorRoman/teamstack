@@ -79,6 +79,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
         ];
       }
     }
+    where.deletedAt = null;
 
     if (positionId) {
       where.positionId = positionId as string;
@@ -130,8 +131,8 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
 
-    const employee = await prisma.user.findUnique({
-      where: { id },
+    const employee = await prisma.user.findFirst({
+      where: { id, deletedAt: null },
       include: {
         projects: true,
         entitlements: true,
@@ -218,6 +219,14 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
       }
     }
 
+    const existingEmployee = await prisma.user.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!existingEmployee) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
     const employee = await prisma.user.update({
       where: { id },
       data: updateData,
@@ -254,8 +263,8 @@ router.put('/:id/password', authenticateToken, async (req: AuthRequest, res) => 
 
     const data = updatePasswordSchema.parse(req.body);
 
-    const user = await prisma.user.findUnique({
-      where: { id },
+    const user = await prisma.user.findFirst({
+      where: { id, deletedAt: null },
       select: { passwordHash: true },
     });
 
