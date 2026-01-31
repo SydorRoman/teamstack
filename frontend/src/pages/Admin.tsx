@@ -40,6 +40,7 @@ export default function Admin() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [newUser, setNewUser] = useState({
     firstName: '',
     lastName: '',
@@ -146,9 +147,15 @@ export default function Admin() {
   };
 
   const handleCreateUser = async () => {
+    const validationErrors = validateUser(false);
+    if (Object.keys(validationErrors).length > 0) {
+      setFormErrors(validationErrors);
+      return;
+    }
     try {
       await axios.post('/api/admin/users', newUser);
       setShowCreateModal(false);
+      setFormErrors({});
       setNewUser({
         firstName: '',
         lastName: '',
@@ -173,6 +180,7 @@ export default function Admin() {
 
   const handleEditUser = (user: any) => {
     setEditingUser(user);
+    setFormErrors({});
     setNewUser({
       firstName: user.firstName || '',
       lastName: user.lastName || '',
@@ -194,6 +202,11 @@ export default function Admin() {
 
   const handleUpdateUser = async () => {
     if (!editingUser) return;
+    const validationErrors = validateUser(true);
+    if (Object.keys(validationErrors).length > 0) {
+      setFormErrors(validationErrors);
+      return;
+    }
     try {
       await axios.put(`/api/admin/users/${editingUser.id}`, {
         ...newUser,
@@ -201,6 +214,7 @@ export default function Admin() {
       });
       setShowCreateModal(false);
       setEditingUser(null);
+      setFormErrors({});
       setNewUser({
         firstName: '',
         lastName: '',
@@ -261,6 +275,39 @@ export default function Admin() {
       default:
         return type;
     }
+  };
+
+  const clearFieldError = (field: string) => {
+    setFormErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const validateUser = (isEditing: boolean) => {
+    const errors: Record<string, string> = {};
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!newUser.firstName.trim()) {
+      errors.firstName = 'First name is required.';
+    }
+    if (!newUser.lastName.trim()) {
+      errors.lastName = 'Last name is required.';
+    }
+    if (!newUser.email.trim()) {
+      errors.email = 'Email is required.';
+    } else if (!emailPattern.test(newUser.email.trim())) {
+      errors.email = 'Enter a valid email address.';
+    }
+    if (!isEditing && !newUser.password.trim()) {
+      errors.password = 'Password is required.';
+    } else if (newUser.password && newUser.password.length < 8) {
+      errors.password = 'Password must be at least 8 characters.';
+    }
+
+    return errors;
   };
 
   if (loading) {
@@ -379,8 +426,11 @@ export default function Admin() {
                   type="text"
                   value={newUser.firstName}
                   onChange={(e) => setNewUser({ ...newUser, firstName: e.target.value })}
+                  onBlur={() => clearFieldError('firstName')}
+                  className={formErrors.firstName ? 'input-error' : ''}
                   required
                 />
+                {formErrors.firstName && <span className="field-error">{formErrors.firstName}</span>}
               </div>
               <div className="form-group">
                 <label>Last Name *</label>
@@ -388,8 +438,11 @@ export default function Admin() {
                   type="text"
                   value={newUser.lastName}
                   onChange={(e) => setNewUser({ ...newUser, lastName: e.target.value })}
+                  onBlur={() => clearFieldError('lastName')}
+                  className={formErrors.lastName ? 'input-error' : ''}
                   required
                 />
+                {formErrors.lastName && <span className="field-error">{formErrors.lastName}</span>}
               </div>
               <div className="form-group">
                 <label>Email *</label>
@@ -397,8 +450,11 @@ export default function Admin() {
                   type="email"
                   value={newUser.email}
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  onBlur={() => clearFieldError('email')}
+                  className={formErrors.email ? 'input-error' : ''}
                   required
                 />
+                {formErrors.email && <span className="field-error">{formErrors.email}</span>}
               </div>
               {!editingUser && (
                 <div className="form-group">
@@ -407,8 +463,11 @@ export default function Admin() {
                     type="password"
                     value={newUser.password}
                     onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                    onBlur={() => clearFieldError('password')}
+                    className={formErrors.password ? 'input-error' : ''}
                     required
                   />
+                  {formErrors.password && <span className="field-error">{formErrors.password}</span>}
                 </div>
               )}
               {editingUser && (
@@ -418,8 +477,11 @@ export default function Admin() {
                     type="password"
                     value={newUser.password}
                     onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                    onBlur={() => clearFieldError('password')}
+                    className={formErrors.password ? 'input-error' : ''}
                     placeholder="Leave empty to keep current password"
                   />
+                  {formErrors.password && <span className="field-error">{formErrors.password}</span>}
                 </div>
               )}
               <div className="form-group">
@@ -551,6 +613,7 @@ export default function Admin() {
               <button className="btn-secondary" onClick={() => {
                 setShowCreateModal(false);
                 setEditingUser(null);
+                setFormErrors({});
               }}>
                 Cancel
               </button>
