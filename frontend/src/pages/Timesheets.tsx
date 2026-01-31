@@ -58,6 +58,7 @@ export default function Timesheets() {
   const [weekNote, setWeekNote] = useState('');
   const [weekSelectedDays, setWeekSelectedDays] = useState<boolean[]>([true, true, true, true, true, false, false]);
   const [weekProjectError, setWeekProjectError] = useState('');
+  const [weekDaysError, setWeekDaysError] = useState('');
 
   useEffect(() => {
     fetchWorkLogs();
@@ -136,6 +137,7 @@ export default function Timesheets() {
     setWeekNote('');
     setWeekSelectedDays([true, true, true, true, true, false, false]);
     setWeekProjectError('');
+    setWeekDaysError('');
     setShowWeekModal(true);
   };
 
@@ -145,7 +147,7 @@ export default function Timesheets() {
       return;
     }
     if (!weekSelectedDays.some(Boolean)) {
-      alert('Please select at least one day.');
+      setWeekDaysError('Please select at least one day.');
       return;
     }
 
@@ -636,9 +638,14 @@ export default function Timesheets() {
                 <label>Days to include</label>
                 <div className="week-days-grid">
                   {getWeekDates(weekStartDate).map((date, index) => {
-                    const label = format(date, 'EEE dd');
+                    const dayName = format(date, 'EEE');
+                    const dayDate = format(date, 'dd');
+                    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                     return (
-                      <label key={date.toISOString()} className="week-day-chip">
+                      <label
+                        key={date.toISOString()}
+                        className={`week-day-chip ${weekSelectedDays[index] ? 'is-selected' : ''} ${isWeekend ? 'is-weekend' : ''}`}
+                      >
                         <input
                           type="checkbox"
                           checked={weekSelectedDays[index]}
@@ -646,13 +653,20 @@ export default function Timesheets() {
                             const next = [...weekSelectedDays];
                             next[index] = event.target.checked;
                             setWeekSelectedDays(next);
+                            if (next.some(Boolean)) {
+                              setWeekDaysError('');
+                            }
                           }}
                         />
-                        <span>{label}</span>
+                        <span className="week-day-content">
+                          <span className="week-day-name">{dayName}</span>
+                          <span className="week-day-date">{dayDate}</span>
+                        </span>
                       </label>
                     );
                   })}
                 </div>
+                {weekDaysError && <span className="week-days-error">{weekDaysError}</span>}
               </div>
 
               <div className="form-group">
