@@ -14,6 +14,7 @@ interface Employee {
   telegram: string | null;
   birthDate: string | null;
   hireDate: string | null;
+  positionId?: string | null;
   position: { id: string; name: string } | string | null;
   gender: string | null;
   city: string | null;
@@ -23,6 +24,11 @@ interface Employee {
 }
 
 interface Technology {
+  id: string;
+  name: string;
+}
+
+interface Position {
   id: string;
   name: string;
 }
@@ -39,6 +45,7 @@ export default function EmployeeProfile() {
   const [selectedTechnologyIds, setSelectedTechnologyIds] = useState<string[]>([]);
   const [isTechnologiesModalOpen, setIsTechnologiesModalOpen] = useState(false);
   const [technologySearch, setTechnologySearch] = useState('');
+  const [positions, setPositions] = useState<Position[]>([]);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -53,6 +60,7 @@ export default function EmployeeProfile() {
     telegram: '',
     birthDate: '',
     hireDate: '',
+    positionId: '',
     gender: '',
     city: '',
     country: '',
@@ -78,6 +86,10 @@ export default function EmployeeProfile() {
 
   useEffect(() => {
     if (employee && !isEditing) {
+      const positionId =
+        employee.position && typeof employee.position !== 'string'
+          ? employee.position.id
+          : employee.positionId || '';
       setFormData({
         firstName: employee.firstName || '',
         lastName: employee.lastName || '',
@@ -86,6 +98,7 @@ export default function EmployeeProfile() {
         telegram: employee.telegram || '',
         birthDate: employee.birthDate ? format(new Date(employee.birthDate), 'yyyy-MM-dd') : '',
         hireDate: employee.hireDate ? format(new Date(employee.hireDate), 'yyyy-MM-dd') : '',
+        positionId,
         gender: employee.gender || '',
         city: employee.city || '',
         country: employee.country || '',
@@ -93,6 +106,12 @@ export default function EmployeeProfile() {
       setSelectedTechnologyIds((employee.technologies ?? []).map((tech) => tech.id));
     }
   }, [employee, isEditing]);
+
+  useEffect(() => {
+    if (user?.isAdmin) {
+      void fetchPositions();
+    }
+  }, [user?.isAdmin]);
 
   const fetchEmployee = async () => {
     try {
@@ -102,6 +121,15 @@ export default function EmployeeProfile() {
       console.error('Error fetching employee:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPositions = async () => {
+    try {
+      const response = await axios.get('/api/positions');
+      setPositions(response.data);
+    } catch (error) {
+      console.error('Error fetching positions:', error);
     }
   };
 
@@ -128,7 +156,7 @@ export default function EmployeeProfile() {
       const basePayload = { ...formData };
       const payload = user?.isAdmin
         ? basePayload
-        : (({ hireDate, ...rest }) => rest)(basePayload);
+        : (({ hireDate, positionId, ...rest }) => rest)(basePayload);
       const response = await axios.put(`/api/employees/${id}`, payload);
       setEmployee((prev) => {
         const base = prev ?? (response.data as Employee);
@@ -362,7 +390,21 @@ export default function EmployeeProfile() {
             </div>
             <div className="info-item">
               <label>Position</label>
-              <span>{getPositionName()}</span>
+              {isEditing && user?.isAdmin ? (
+                <select
+                  value={formData.positionId}
+                  onChange={(e) => handleInputChange('positionId', e.target.value)}
+                >
+                  <option value="">Not set</option>
+                  {positions.map((position) => (
+                    <option key={position.id} value={position.id}>
+                      {position.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span>{getPositionName()}</span>
+              )}
             </div>
             <div className="info-item">
               <label>Gender</label>
