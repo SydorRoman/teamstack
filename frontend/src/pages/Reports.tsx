@@ -386,109 +386,111 @@ export default function Reports() {
           </button>
         </div>
 
-        <div className="filter-group">
-          <label htmlFor="userFilter">Employee:</label>
-          <div className="searchable-select" ref={employeeSearchRef}>
-            <div className="search-input-wrapper">
-              <input
-                id="userFilter"
-                type="text"
-                placeholder="Search employee..."
-                value={employeeSearch || getSelectedEmployeeName() || ''}
-                onChange={(e) => {
-                  setEmployeeSearch(e.target.value);
-                  setShowEmployeeDropdown(true);
-                  if (!e.target.value) {
-                    setSelectedUserId('');
-                  }
-                }}
-                onFocus={() => setShowEmployeeDropdown(true)}
-                className="filter-select search-input"
-              />
-              {selectedUserId && (
-                <button
-                  type="button"
-                  className="clear-button"
-                  onClick={handleEmployeeClear}
-                  title="Clear selection"
-                >
-                  ×
-                </button>
-              )}
-            </div>
-            {showEmployeeDropdown && (
-              <div className="dropdown-list" role="listbox" aria-label="Employee options">
-                {filteredEmployees.length === 0 ? (
-                  <div className="dropdown-item no-results">No employees found</div>
-                ) : (
-                  filteredEmployees.map((user) => (
-                    <button
-                      type="button"
-                      key={user.id}
-                      className={`dropdown-item ${selectedUserId === user.id ? 'selected' : ''}`}
-                      onClick={() => handleEmployeeSelect(user.id)}
-                      role="option"
-                      aria-selected={selectedUserId === user.id}
-                    >
-                      {user.firstName} {user.lastName} ({user.email})
-                    </button>
-                  ))
+        <div className="filter-controls">
+          <div className="filter-group">
+            <label htmlFor="userFilter">Employee</label>
+            <div className="searchable-select" ref={employeeSearchRef}>
+              <div className="search-input-wrapper">
+                <input
+                  id="userFilter"
+                  type="text"
+                  placeholder="Search employee..."
+                  value={employeeSearch || getSelectedEmployeeName() || ''}
+                  onChange={(e) => {
+                    setEmployeeSearch(e.target.value);
+                    setShowEmployeeDropdown(true);
+                    if (!e.target.value) {
+                      setSelectedUserId('');
+                    }
+                  }}
+                  onFocus={() => setShowEmployeeDropdown(true)}
+                  className="filter-select search-input"
+                />
+                {selectedUserId && (
+                  <button
+                    type="button"
+                    className="clear-button"
+                    onClick={handleEmployeeClear}
+                    title="Clear selection"
+                  >
+                    ×
+                  </button>
                 )}
               </div>
-            )}
+              {showEmployeeDropdown && (
+                <div className="dropdown-list" role="listbox" aria-label="Employee options">
+                  {filteredEmployees.length === 0 ? (
+                    <div className="dropdown-item no-results">No employees found</div>
+                  ) : (
+                    filteredEmployees.map((user) => (
+                      <button
+                        type="button"
+                        key={user.id}
+                        className={`dropdown-item ${selectedUserId === user.id ? 'selected' : ''}`}
+                        onClick={() => handleEmployeeSelect(user.id)}
+                        role="option"
+                        aria-selected={selectedUserId === user.id}
+                      >
+                        {user.firstName} {user.lastName} ({user.email})
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
 
-        <div className="filter-group">
-          <label htmlFor="projectFilter">Project:</label>
-          <div className="searchable-select" ref={projectSearchRef}>
-            <div className="search-input-wrapper">
-              <input
-                id="projectFilter"
-                type="text"
-                placeholder="Search project..."
-                value={projectSearch || getSelectedProjectName() || ''}
-                onChange={(e) => {
-                  setProjectSearch(e.target.value);
-                  setShowProjectDropdown(true);
-                  if (!e.target.value) {
-                    setSelectedProjectId('');
-                  }
-                }}
-                onFocus={() => setShowProjectDropdown(true)}
-                className="filter-select search-input"
-              />
-              {selectedProjectId && (
-                <button
-                  type="button"
-                  className="clear-button"
-                  onClick={handleProjectClear}
-                  title="Clear selection"
-                >
-                  ×
-                </button>
-              )}
-            </div>
-            {showProjectDropdown && (
-              <div className="dropdown-list" role="listbox" aria-label="Project options">
-                {filteredProjects.length === 0 ? (
-                  <div className="dropdown-item no-results">No projects found</div>
-                ) : (
-                  filteredProjects.map((project) => (
-                    <button
-                      type="button"
-                      key={project.id}
-                      className={`dropdown-item ${selectedProjectId === project.id ? 'selected' : ''}`}
-                      onClick={() => handleProjectSelect(project.id)}
-                      role="option"
-                      aria-selected={selectedProjectId === project.id}
-                    >
-                      {project.name}
-                    </button>
-                  ))
+          <div className="filter-group">
+            <label htmlFor="projectFilter">Project</label>
+            <div className="searchable-select" ref={projectSearchRef}>
+              <div className="search-input-wrapper">
+                <input
+                  id="projectFilter"
+                  type="text"
+                  placeholder="Search project..."
+                  value={projectSearch || getSelectedProjectName() || ''}
+                  onChange={(e) => {
+                    setProjectSearch(e.target.value);
+                    setShowProjectDropdown(true);
+                    if (!e.target.value) {
+                      setSelectedProjectId('');
+                    }
+                  }}
+                  onFocus={() => setShowProjectDropdown(true)}
+                  className="filter-select search-input"
+                />
+                {selectedProjectId && (
+                  <button
+                    type="button"
+                    className="clear-button"
+                    onClick={handleProjectClear}
+                    title="Clear selection"
+                  >
+                    ×
+                  </button>
                 )}
               </div>
-            )}
+              {showProjectDropdown && (
+                <div className="dropdown-list" role="listbox" aria-label="Project options">
+                  {filteredProjects.length === 0 ? (
+                    <div className="dropdown-item no-results">No projects found</div>
+                  ) : (
+                    filteredProjects.map((project) => (
+                      <button
+                        type="button"
+                        key={project.id}
+                        className={`dropdown-item ${selectedProjectId === project.id ? 'selected' : ''}`}
+                        onClick={() => handleProjectSelect(project.id)}
+                        role="option"
+                        aria-selected={selectedProjectId === project.id}
+                      >
+                        {project.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
