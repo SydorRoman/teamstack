@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs/promises';
 import multer from 'multer';
 import { PrismaClient } from '@prisma/client';
 import { authenticateToken, AuthRequest } from '../middleware/auth.js';
@@ -9,7 +10,7 @@ import { LocalStorageService } from '../services/storage/localStorageService.js'
 
 const router = express.Router();
 const prisma = new PrismaClient();
-const prismaAny = prisma as typeof prisma & { settings: any };
+const prismaAny = prisma as typeof prisma & { settings: any; absence: any; absenceFile: any };
 
 const upload = multer({ storage: multer.memoryStorage() });
 const storageService = new LocalStorageService(path.resolve(process.cwd(), 'uploads', 'sick-leave'));
@@ -78,6 +79,7 @@ async function getSettingsWithDefaults() {
       vacationFutureAccrueDays: 1.5,
       sickLeaveWithoutCertificateLimit: 5,
       sickLeaveWithCertificateLimit: 5,
+      vacationCarryoverLimit: 0,
     },
   });
 }
@@ -187,7 +189,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
       ];
     }
 
-    const absences = await prisma.absence.findMany({
+    const absences = await prismaAny.absence.findMany({
       where,
       include: {
         user: {
@@ -199,6 +201,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
             projects: true,
           },
         },
+        files: true,
       },
       orderBy: {
         from: 'asc',
@@ -288,7 +291,7 @@ router.post('/', authenticateToken, handleUploadIfMultipart, async (req: AuthReq
         });
       }
 
-      const adjacentAbsences = await prisma.absence.findMany({
+      const adjacentAbsences = await prismaAny.absence.findMany({
         where: {
           userId: userId!,
           type: 'sick_leave',
@@ -320,7 +323,9 @@ router.post('/', authenticateToken, handleUploadIfMultipart, async (req: AuthReq
       });
 
       const hasAdjacent = adjacentAbsences.length > 0;
-      const adjacentHasCertificate = adjacentAbsences.some((absence) => absence.files.length > 0);
+      const adjacentHasCertificate = adjacentAbsences.some(
+        (absence: { files: unknown[] }) => absence.files.length > 0
+      );
 
       if (isSingleDay && hasAdjacent && !hasNewFiles && !adjacentHasCertificate) {
         return res.status(400).json({
@@ -329,7 +334,7 @@ router.post('/', authenticateToken, handleUploadIfMultipart, async (req: AuthReq
       }
 
       const { yearStart, yearEnd } = getYearBounds(absenceStart);
-      const unconfirmedCount = await prisma.absence.count({
+      const unconfirmedCount = await prismaAny.absence.count({
         where: {
           userId: userId!,
           type: 'sick_leave',
@@ -360,7 +365,7 @@ router.post('/', authenticateToken, handleUploadIfMultipart, async (req: AuthReq
       for (const year of yearsToCheck) {
         const rangeStart = new Date(year, 0, 1);
         const rangeEnd = new Date(year, 11, 31, 23, 59, 59, 999);
-        const absences = await prisma.absence.findMany({
+        const absences = await prismaAny.absence.findMany({
           where: {
             userId: userId!,
             type: 'sick_leave',
@@ -457,7 +462,7 @@ router.post('/', authenticateToken, handleUploadIfMultipart, async (req: AuthReq
           });
         }
 
-        await prisma.absenceFile.createMany({
+        await prismaAny.absenceFile.createMany({
           data: storedFiles,
         });
       } catch (error) {
@@ -485,6 +490,224 @@ router.post('/', authenticateToken, handleUploadIfMultipart, async (req: AuthReq
       });
     }
     console.error('Error creating absence:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/:id/files', authenticateToken, handleUploadIfMultipart, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { userId, isAdmin } = req;
+    const files = Array.isArray(req.files) ? req.files : [];
+
+    if (files.length === 0) {
+      return res.status(400).json({ error: 'Please attach at least one file.' });
+    }
+
+    const absence = await prisma.absence.findUnique({
+      where: { id },
+    });
+
+    if (!absence) {
+      return res.status(404).json({ error: 'Absence not found' });
+    }
+
+    if (!isAdmin && absence.userId !== userId) {
+      return res.status(403).json({ error: 'You are not allowed to update this absence.' });
+    }
+
+    if (absence.type !== 'sick_leave') {
+      return res.status(400).json({ error: 'Files can only be uploaded for Sick Leave absences.' });
+    }
+
+    const storedFiles = [];
+
+    try {
+      for (const file of files) {
+        const stored = await storageService.saveFile(file, `${absence.userId}/${absence.id}`);
+        storedFiles.push({
+          absenceId: absence.id,
+          fileName: stored.fileName,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          size: file.size,
+          storagePath: stored.storagePath,
+        });
+      }
+
+      await prismaAny.absenceFile.createMany({
+        data: storedFiles,
+      });
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to store uploaded files. Please try again.' });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const absenceEnd = new Date(absence.to);
+    absenceEnd.setHours(23, 59, 59, 999);
+
+    let updatedAbsence = absence;
+    if (absenceEnd < today && absence.status !== 'pending') {
+      updatedAbsence = await prisma.absence.update({
+        where: { id: absence.id },
+        data: { status: 'pending' },
+      });
+    }
+
+    return res.json(updatedAbsence);
+  } catch (error) {
+    console.error('Error uploading absence files:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/files/:id', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { userId, isAdmin } = req;
+
+    const fileRecord = await prismaAny.absenceFile.findUnique({
+      where: { id },
+      include: {
+        absence: true,
+      },
+    });
+
+    if (!fileRecord) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    if (!isAdmin && fileRecord.absence.userId !== userId) {
+      return res.status(403).json({ error: 'You are not allowed to access this file.' });
+    }
+
+    const absolutePath = path.resolve(
+      process.cwd(),
+      'uploads',
+      'sick-leave',
+      ...fileRecord.storagePath.split('/')
+    );
+
+    return res.download(absolutePath, fileRecord.originalName);
+  } catch (error) {
+    console.error('Error downloading absence file:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/files/:id', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { userId, isAdmin } = req;
+
+    const fileRecord = await prismaAny.absenceFile.findUnique({
+      where: { id },
+      include: {
+        absence: true,
+      },
+    });
+
+    if (!fileRecord) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    if (!isAdmin && fileRecord.absence.userId !== userId) {
+      return res.status(403).json({ error: 'You are not allowed to delete this file.' });
+    }
+
+    if (fileRecord.absence.status === 'approved') {
+      return res.status(400).json({ error: 'Cannot delete files from approved absences.' });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const absenceStart = new Date(fileRecord.absence.from);
+    absenceStart.setHours(0, 0, 0, 0);
+
+    if (absenceStart < today) {
+      return res.status(400).json({ error: 'Cannot delete files for past absences.' });
+    }
+
+    const absolutePath = path.resolve(
+      process.cwd(),
+      'uploads',
+      'sick-leave',
+      ...fileRecord.storagePath.split('/')
+    );
+
+    try {
+      await fs.unlink(absolutePath);
+    } catch (error) {
+      // Ignore file not found errors; we still remove DB record.
+    }
+
+    await prismaAny.absenceFile.delete({
+      where: { id },
+    });
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting absence file:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/files/:id', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { userId, isAdmin } = req;
+
+    const fileRecord = await prismaAny.absenceFile.findUnique({
+      where: { id },
+      include: {
+        absence: true,
+      },
+    });
+
+    if (!fileRecord) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    if (!isAdmin && fileRecord.absence.userId !== userId) {
+      return res.status(403).json({ error: 'You are not allowed to delete this file.' });
+    }
+
+    if (fileRecord.absence.type !== 'sick_leave') {
+      return res.status(400).json({ error: 'Files can only be removed for Sick Leave absences.' });
+    }
+
+    const today = startOfDay(new Date());
+    const absenceEnd = startOfDay(new Date(fileRecord.absence.to));
+
+    if (fileRecord.absence.status === 'approved' || absenceEnd < today) {
+      return res.status(400).json({
+        error: 'Files can only be removed for non-approved absences starting today or later.',
+      });
+    }
+
+    const absolutePath = path.resolve(
+      process.cwd(),
+      'uploads',
+      'sick-leave',
+      ...fileRecord.storagePath.split('/')
+    );
+
+    try {
+      await fs.unlink(absolutePath);
+    } catch (error: any) {
+      if (error?.code !== 'ENOENT') {
+        console.error('Error deleting absence file from disk:', error);
+      }
+    }
+
+    await prismaAny.absenceFile.delete({
+      where: { id },
+    });
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting absence file:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

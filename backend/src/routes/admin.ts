@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 const router = express.Router();
 const prisma = new PrismaClient();
-const prismaAny = prisma as typeof prisma & { settings: any; settingsChangeLog: any };
+const prismaAny = prisma as typeof prisma & { settings: any; settingsChangeLog: any; absence: any };
 
 router.use(authenticateToken);
 
@@ -106,7 +106,7 @@ router.get('/pending-requests-count', async (req, res) => {
 
 router.get('/pending-requests', async (req, res) => {
   try {
-    const absences = await prisma.absence.findMany({
+    const absences = await prismaAny.absence.findMany({
       where: {
         status: 'pending',
       },
@@ -119,6 +119,7 @@ router.get('/pending-requests', async (req, res) => {
             email: true,
           },
         },
+        files: true,
       },
       orderBy: {
         createdAt: 'desc',
@@ -128,7 +129,7 @@ router.get('/pending-requests', async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const response = absences.map((absence) => ({
+    const response = absences.map((absence: { from: Date }) => ({
       ...absence,
       isBackdated: new Date(absence.from).setHours(0, 0, 0, 0) < today.getTime(),
     }));

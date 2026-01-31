@@ -1,3 +1,4 @@
+import { type MouseEvent } from 'react';
 import { getUserColor, getTextColor } from '../utils/colorUtils';
 import './BookingBar.css';
 
@@ -6,7 +7,7 @@ interface BookingBarProps {
   lastName: string;
   userId: string;
   type: 'vacation' | 'day_off' | 'sick_leave';
-  onClick?: () => void;
+  onClick?: (event: MouseEvent<HTMLDivElement>) => void;
   compact?: boolean;
 }
 
@@ -37,7 +38,7 @@ export function BookingBar({
       onKeyDown={(e) => {
         if (onClick && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault();
-          onClick();
+          onClick(e as unknown as MouseEvent<HTMLDivElement>);
         }
       }}
       aria-label={`${firstName} ${lastName} - ${type}`}

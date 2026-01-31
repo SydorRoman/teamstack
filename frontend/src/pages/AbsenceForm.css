@@ -84,6 +84,34 @@
   word-break: break-all;
 }
 
+.file-download-button {
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #f8f9fa;
+  color: #4b5563;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.file-download-button:hover {
+  background: #eef1f4;
+}
+
+.file-delete-button {
+  padding: 4px 8px;
+  border: 1px solid #f5c6b8;
+  border-radius: 4px;
+  background: #fde8e1;
+  color: #8e2f1c;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.file-delete-button:hover {
+  background: #f7d6ca;
+}
+
 .absence-form select:focus {
   outline: none;
   border-color: #3498db;

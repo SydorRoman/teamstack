@@ -23,6 +23,7 @@ interface MonthlyCalendarProps {
   absences: Absence[];
   onMonthChange: (date: Date) => void;
   onDayClick: (date: Date) => void;
+  onAbsenceClick: (absence: Absence) => void;
   maxVisibleBars?: number;
 }
 
@@ -31,6 +32,7 @@ export function MonthlyCalendar({
   absences,
   onMonthChange,
   onDayClick,
+  onAbsenceClick,
   maxVisibleBars = 3,
 }: MonthlyCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -211,6 +213,10 @@ export function MonthlyCalendar({
                         userId={booking.user.id}
                         type={booking.type}
                         compact={true}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onAbsenceClick(booking);
+                        }}
                       />
                     ))}
                     {remainingCount > 0 && (

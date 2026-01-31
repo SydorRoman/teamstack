@@ -10,6 +10,7 @@ interface PendingRequest {
   to: string;
   status: 'pending';
   isBackdated?: boolean;
+  files?: { id: string; originalName: string }[];
   user: {
     id: string;
     firstName: string;
@@ -114,6 +115,25 @@ export default function Admin() {
       fetchPendingRequests();
     } catch (error) {
       alert('Failed to reject request');
+    }
+  };
+
+  const handleDownloadFile = async (fileId: string, fileName: string) => {
+    try {
+      const response = await axios.get(`/api/absences/files/${fileId}`, {
+        responseType: 'blob',
+      });
+
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      alert('Failed to download file');
     }
   };
 
@@ -266,6 +286,19 @@ export default function Admin() {
                     {format(new Date(request.from), 'MMM dd, yyyy')} -{' '}
                     {format(new Date(request.to), 'MMM dd, yyyy')}
                   </div>
+                  {request.files && request.files.length > 0 && (
+                    <div className="request-files">
+                      {request.files.map((file) => (
+                        <button
+                          key={file.id}
+                          className="btn-secondary btn-sm"
+                          onClick={() => handleDownloadFile(file.id, file.originalName)}
+                        >
+                          Download {file.originalName}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="request-actions">
                   <button
