@@ -13,6 +13,7 @@ const updateEmployeeSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().optional(),
   telegram: z.string().optional(),
+  positionId: z.string().uuid().optional().or(z.literal('')),
   birthDate: z
     .string()
     .optional()
@@ -181,6 +182,9 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
     if (!isAdmin && data.hireDate !== undefined) {
       return res.status(403).json({ error: 'Only admins can update hire date' });
     }
+    if (!isAdmin && data.positionId !== undefined) {
+      return res.status(403).json({ error: 'Only admins can update position' });
+    }
 
     const nullableFields: Array<keyof typeof data> = [
       'phone',
@@ -194,6 +198,10 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
         updateData[field] = null;
       }
     });
+
+    if (data.positionId !== undefined) {
+      updateData.positionId = data.positionId || null;
+    }
 
     if (data.birthDate !== undefined) {
       if (data.birthDate === '') {

@@ -409,6 +409,16 @@
   flex-shrink: 0;
 }
 
+.form-validation {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #fdecea;
+  color: #b00020;
+  font-size: 14px;
+  font-weight: 500;
+}
+
 .modal-content .form-group {
   margin-bottom: 20px;
 }

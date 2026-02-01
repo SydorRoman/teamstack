@@ -41,12 +41,16 @@ interface Absence {
   from: string;
   to: string;
   status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
 }
 
 export default function Entitlement() {
   const [entitlements, setEntitlements] = useState<EntitlementDetails[]>([]);
   const [history, setHistory] = useState<Absence[]>([]);
   const [loading, setLoading] = useState(true);
+  const sortedHistory = [...history].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 
   useEffect(() => {
     fetchEntitlements();
@@ -239,11 +243,11 @@ export default function Entitlement() {
 
       <div className="history-section">
         <h2>Requests History</h2>
-        {history.length === 0 ? (
+        {sortedHistory.length === 0 ? (
           <p className="no-history">No history available</p>
         ) : (
           <div className="history-list">
-            {history.map((absence) => (
+            {sortedHistory.map((absence) => (
               <div key={absence.id} className="history-item">
                 <div className="history-type">{getTypeLabel(absence.type)}</div>
                 <div className="history-dates">
